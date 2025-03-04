@@ -1,0 +1,116 @@
+
+chunk_backup:
+
+   register_message: Read through commands related to CPU
+
+   lack_permission: You have no permission to use this command!
+
+   help_message: |
+    ------ {1} {2} ------
+    A region-measured §aplugin for §abackups
+    §3Author: FRUITS_CANDY
+    §d【Format specification】
+    #sc=!!cp<>st=Click to run#§7{0} §a§l[▷] §eShow help message
+    #sc=!!cp make<>st=Click to run#§7{0} make §b<Chunk radius> <comment> §a§l[▷] §eTake the player's block as the center and backup the area where the block with a side length of 2 times radius+1 is located
+    #sc=!!cp dim_make<>st=Click to run#§7{0} dim_make §b<dimension:0 for overworld,-1 for the nether,1 for the end> <comment> §a§l[▷] §eBackup all regions of a given dimension, using commas to distinguish between dimensions §aEtc. 0 or 0,-1
+    #sc=!!cp pos_make<>st=Click to run#§7{0} pos_make §b<x1 coordinates> <z1 coordinates> <x2 coordinates> <z2 coordinates> <dimension:See the previous instruction for the format> <comment> §a§l[▷] §eGiven two coordinate points, backup a rectangular area formed by taking the corresponding area coordinates of the two coordinate points as vertices
+    #sc=!!cp back<>st=Click to run#§7{0} back §b<Slot> §a§l[▷] §eBackup region assigned to corresponding slot
+    #sc=!!cp restore<>st=Click to run#§7{0} restore §b<Slot> §a§l[▷] §eRestore the save to the primary state
+    #sc=!!cp del<>st=Click to run#§7{0} del §b<Slot> §a§l[▷] §eDelete slot
+    #sc=!!cp confirm<>st=Click to run#§7{0} confirm §a§l[▷] §eReconfirm to backup
+    #sc=!!cp abort<>st=Click to run#§7{0} abort §a§l[▷] §eYou can type in this command to stop backup at any time
+    #sc=!!cp list<>st=Click to run#§7{0} list §a§l[▷] §eDisplay back-up info for each slot respectively
+    #sc=!!cp reload<>st=Click to run#§7{0} reload §a§l[▷] §eReload CPU
+
+   default_comment: §7Empty
+
+   default_info: Empty
+
+   backup_error:
+
+       source_error: §c§lThis command can only be typed in by real player!
+
+       radius_error: §cThe backup radius must be an integar greater than or equal to zero!
+
+       invalid_pos: §cInvalid back-up sets, failed to find corresponding region on the basis of input coordinates
+
+       repeat_backup: §c§lBackup files in queue, do not send reduplicative order!
+
+       dim_error: §cInvalid dimension input
+
+       dim_repeat: §cRepeated dimension input
+
+       timeout: "[CPU] §cBack-up files timeout, the order has been cancelled"
+
+       unknown_error: "Error occurred, error info:§c{}"
+
+   back_error:
+
+       dim_error: §cInvalid dimension input
+
+       lack_info: §cFailed to backup :The slot lacks info.json file,or the slot is missing!
+
+       lack_region: §cCannot back-up file because the slot is empty!
+
+       timeout: §aBack-up files timeout,the order has been cancelled!
+
+       repeat_back: §c§lBack-up files in queue,do not send reduplicative order!
+
+       unknown_error: Error occured,error info:§c{}
+
+       server_error: Server shutdown abnormally,the backup has stopped
+
+       wrong_dim: Please check info.json to ensure it contains right dimension info
+
+   del_error:
+
+       lack_slot: §4§lSlot{} inexists
+
+       other_error: Error occured when deleting backups, error info:§c{}
+
+   list_error: Error occured when displaying back-up list, error info:§c{}
+
+   reload_error: Failed to reload CPU, error info:§c{}
+
+   backup:
+
+       start: "[CPU] §fProcessing§a backups...Please wait..."
+
+       date: "[CPU] Date: {}; comment: {}"
+
+       done: "[CPU] §aBackup §fcompleted,which takes §6{}§f seconds"
+
+   back:
+
+       start: "[CPU] Plan to restore the save to slot §6{}§f,Date {}; comment: {}"
+
+       click: "[CPU] Use #sc=!!cp confirm<>st=Click to confirm#§7!!cp confirm §fConfirm §cbackup§f,#sc=!!cp abort<>st=Click to cancel#§7!!cp abort §fcancel"
+
+       abort: §aBackup cancelled
+
+       countdown: §cThe server will close in 10 seconds!
+
+       count: "§aThe server will close in {} seconds,Type in #sc=!!cp abort<>st=to stop backup#§c!!cp abort§f to stop backup to slot §6{}"
+
+       run: §aExecuting files replacement
+
+   del: §4§lSlot{} Delete successfully
+
+   abort: There's nothing to abort
+
+   confirm: There's nothing to confirm
+
+   list:
+
+       empty_slot: No slot exists
+
+       first: §d【SlotInfo】
+
+       slot_info: "#st=Backup dimension:{0}#[Slot§6{1}§f] #sc=!!cp back {1}<>st=Backup toSlot§6{1}#§a[▷] #sc=!!cp del {1}<>st=Delete slot§6{1}#§c[x] ##§a{2} §f{3} comment:{4}"
+
+       empty_size: "[Slot§6{}§f] Empty"
+
+       total_size: "Total space occupied by backups: §a{}"
+
+   reload: §a§lCPU has reloaded!
+
