@@ -1,0 +1,34 @@
+chunk_backup:
+
+  warn:
+      not_select_abel_backup_chunk: "警告：启用了备份功能但未找到可备份的区块"
+      Migration_incomplete: "警告: 偏移表条目 {} 数据不完整，已跳过"
+      sector_out_of_bounds: "警告: 区块 ({}, {}) 扇区范围越界，已跳过"
+      mca_size_abnormal: "警告: 区域文件 {} 大小异常"
+      sector_range_invalid: "警告: 无效扇区范围 [{}-{})"
+
+
+  error:
+    player_error:
+
+
+    system_error:
+      read_chunk_file_error: "读取区块 ({}, {}) 失败: {}"
+      read_mca_file_error: "读取备份区块文件失败: {}"
+      scan_mca_leisure_error : "扫描目标文件空闲扇区失败: {}"
+      write_chunk_file_error: "写入区块 ({}, {}) 失败: {}"
+      invalid_sector_parameter: "无效扇区参数: start={}, count={}"
+
+
+    region_error:
+      mca_analyze_error: "无法解析区域文件名: {}"
+      mca_not_exist: "源区域文件不存在: {}"
+      mca_pos_analyze_error: "解析目标区域坐标失败: {}"
+      mca_unable: "错误: 文件 {} 不是有效的区域文件（大小不足8192字节）"
+
+  prompt_msg:
+    successful_generate_tidy_mca: "已生成精简区域文件: {}"
+    ban_backup: "已禁用备份功能"
+    skip_exist_chunk: "跳过已有区块 ({}, {})"
+    successful_generate_back_mca: "备份区域文件已生成: {}"
+

@@ -1,0 +1,20 @@
+{
+	"id": "chunk_backup",
+	"version": "beta",
+	"name": "Chunk Backup",
+	"description": {
+		"en_us": "A plugin for original block backup",
+		"zh_cn": "一个原版区块备份的插件"
+	},
+	"author": [
+		"Bexerlmao","FRUITS_CANDY"
+	],
+	"link": "https://github.com/Passion-Never-Dissipate/Chunk_BackUp",
+	"dependencies": {
+		"mcdreforged": ">=2.7.0"
+	},
+	"archive_name": "chunk_backup-{version}",
+	"resources": [
+		"LICENSE"
+	]
+}
