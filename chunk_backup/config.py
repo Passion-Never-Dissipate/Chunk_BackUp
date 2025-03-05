@@ -2,7 +2,7 @@ from mcdreforged.api.utils.serializer import Serializable
 from typing import Dict
 
 
-class rb_info(Serializable):
+class cp_info(Serializable):
     time: str = ""
     backup_dimension: str = ""
     user: str = ""
@@ -11,10 +11,10 @@ class rb_info(Serializable):
     version_created: str = "1.9.1"
 
 
-class rb_config(Serializable):
+class cp_config(Serializable):
     server_path: str = "./server"
-    backup_path: str = "./rb_multi"
-    static_backup_path: str = "./rb_static"
+    backup_path: str = "./cp_multi"
+    static_backup_path: str = "./cp_static"
     overwrite_backup_folder: str = "overwrite"
     bukkit_mode: bool = False
     dimension_info: Dict[str, dict] = {

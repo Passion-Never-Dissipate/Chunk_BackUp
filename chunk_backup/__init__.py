@@ -23,42 +23,9 @@ dimension_info = cfg.dimension_info
 data = None
 time_out = 5
 countdown = 10
-file_formats = ["mca", "dat"]  # 可自定义扩展名
 
 
-def check_dimension_info(dimension_info):
-    seen = set()
-    for value in dimension_info.values():
-        dimension = value["dimension"]  # 假设 "dimension" 键必然存在
-        if dimension in seen:
-            return None  # 发现重复，立即返回
-        seen.add(dimension)
-    # 无重复时返回所有唯一值（或根据需求调整返回值）
-    return list(seen)
-    
-def dimension_info_inversion():
-    dimension_info_inversion = {}
-    
-    for key, value in dimension_info():
-        dimension_info_inversion[value["dimension"]] = value
-        dimension_info_inversion[value["dimension"]]["dimension"] = key
 
-def get_files_size(path_list: list):
-
-    file_data = {}
-
-    for file_format in file_formats:
-        unit_index = 0
-        current_files_size = 0
-        pattern = os.path.join(path, f"**/*.{file_format}")
-
-        for path in path_list:
-            all_files = glob.glob(pattern, recursive=True)
-        
-        for file in all_files:
-            current_files_size += os.path.getsize(file)
-
-        file_data[file_format] = {"number" : len(all_files), "files_size" : current_files_size}
 
 
 
