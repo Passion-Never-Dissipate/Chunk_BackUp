@@ -1,13 +1,14 @@
 from mcdreforged.api.utils.serializer import Serializable
-from typing import Dict
+from typing import Dict, Union, List
 
 
 class cb_info(Serializable):
     time: str = ""
-    backup_dimension: str = ""
+    backup_dimension: list = []
     user: str = ""
     command: str = ""
     comment: str = ""
+    backup_type: str = ""
     version_created: str = "1.0.0"
 
 

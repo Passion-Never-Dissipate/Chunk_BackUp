@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 region_backup:
 
@@ -187,3 +188,193 @@ region_backup:
 
 
     
+=======
+
+chunk_backup:
+
+
+   register_message: 查看与区块备份有关的指令
+
+
+   config_error: §c配置文件出错,请检查错误或重新生成配置文件
+
+
+   lack_permission: 你没有运行该指令的权限
+
+
+   reload: §a§lRegion_BackUp已重载
+
+
+   list_error: 显示备份列表出错,错误信息:§c{}
+
+
+   reload_error: 重载插件失败,错误信息:§c{}
+
+
+   del: §4§l槽位{}删除成功
+
+
+   abort: 没有什么好中断的
+
+
+   confirm: 没有什么好确认的
+
+
+
+   help_message: |
+    ------ {1} {2} ------
+    一个以区块为单位的§a备份回档§a插件
+    §3作者: FRUITS_CANDY
+    §d【常用指令】
+    #sc={0} help<>st=点击运行指令#§7{0} help §f查看所有指令用法
+    #sc={0} make<>st=点击运行指令#§7{0} make §6<区块半径> §e[<注释>] §f以当前区块为中心,备份边长为2倍半径+1的区块所在区域/§e<注释>§f为可选注释
+    #sc={0} dim_make<>st=点击运行指令#§7{0} dim_make §6<维度:0主世界,-1地狱,1末地> §e[<注释>] §f备份给定维度的所有区域,维度间用§6,§f做区分/§a例:0 或 0,-1
+    #sc={0} pos_make<>st=点击运行指令#§7{0} pos_make §6<x1坐标> <z1坐标> <x2坐标> <z2坐标> <维度> §e[<注释>] §f给定两个坐标点,备份以两坐标点对应的区域坐标为顶点形成的矩形区域
+    #sc={0} back<>st=点击运行指令#§7{0} back §e[<槽位>] §f回档指定槽位所对应的区域
+    #sc={0} restore<>st=点击运行指令#§7{0} restore §f使存档还原到回档前状态
+    #sc={0} del<>st=点击运行指令#§7{0} del §6<槽位> §f删除某槽位
+    #sc={0} confirm<>st=点击运行指令#§7{0} confirm §f再次确认是否回档
+    #sc={0} abort<>st=点击运行指令#§7{0} abort §f在任何时候键入此指令可中断回档
+    #sc={0} list<>st=点击运行指令#§7{0} list §e[<页数>] §f显示备份槽位信息
+    #sc={0} update_slot<>st=点击运行指令#§7{0} update_slot §f将§c1.8.4§f及之前生成的备份升级到新版本
+    #sc={0} reload<>st=点击运行指令#§7{0} reload §f重载插件
+    #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=点我进入插件仓库了解更多用法#§d想了解更详细的用法?§b点我了解更多§6<——
+
+
+   full_help_message: |
+    §d【全部指令】
+    #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=点我进入插件仓库了解更多用法#§d想了解更详细的用法?§b点我了解更多§6<——
+    #sc={0}<>st=点击运行指令#§7{0} §f查看帮助信息
+    #sc={0} help<>st=点击运行指令#§7{0} help §e查看所有指令用法
+    #sc={0} make<>st=点击运行指令#§7{0} make §6<区块半径> §e[<注释>] §f以当前区块为中心,备份边长为2倍半径+1的区块所在区域/§e<注释>§f为可选注释
+    #sc={0} make -s<>st=点击运行指令#§7{0} make §b-s §6<参数同上> §f同上,只是创建的备份为§c静态备份§f(即§a永久备份§f)
+    #sc={0} dim_make<>st=点击运行指令#§7{0} dim_make §6<维度:0主世界,-1地狱,1末地> §e[<注释>] §f备份给定维度的所有区域,维度间用§6,§f做区分/§a例:0 或 0,-1
+    #sc={0} dim_make -s<>st=点击运行指令#§7{0} dim_make §b-s §6<参数同上> §f同上,只是创建的备份为§c静态备份§f(即§a永久备份§f)
+    #sc={0} pos_make<>st=点击运行指令#§7{0} pos_make §6<x1坐标> <z1坐标> <x2坐标> <z2坐标> <维度> §e[<注释>] §f给定两个坐标点,备份以两坐标点对应的区域坐标为顶点形成的矩形区域
+    #sc={0} pos_make -s<>st=点击运行指令#§7{0} pos_make §b-s §6<参数同上> §f同上,只是创建的备份为§c静态备份§f(即§a永久备份§f)
+    #sc={0} back<>st=点击运行指令#§7{0} back §e[<槽位>] §f回档指定槽位所对应的区域
+    #sc={0} back -s<>st=点击运行指令#§7{0} back §b-s §6<参数同上> §f同上,只是回档的对象为§c静态备份§f(即§a永久备份§f)
+    #sc={0} restore<>st=点击运行指令#§7{0} restore §e使存档还原到回档前状态
+    #sc={0} del<>st=点击运行指令#§7{0} del §6<槽位> §f删除某槽位
+    #sc={0} del -s<>st=点击运行指令#§7{0} del §b-s §6<参数同上> §f同上,只是删除的备份为§c静态备份§f(即§a永久备份§f)
+    #sc={0} confirm<>st=点击运行指令#§7{0} confirm §e再次确认是否回档
+    #sc={0} abort<>st=点击运行指令#§7{0} abort §e在任何时候键入此指令可中断回档
+    #sc={0} list<>st=点击运行指令#§7{0} list §e[<页数>] §f显示备份槽位信息
+    #sc={0} list -s<>st=点击运行指令#§7{0} list §b-s §6<参数同上> §f同上,只是查看的备份为§c静态备份§f(即§a永久备份§f)
+    #sc={0} update_slot<>st=点击运行指令#§7{0} update_slot §f将§c1.8.4§f及之前生成的备份升级到新版本
+    #sc={0} reload<>st=点击运行指令#§7{0} reload §e重载插件
+     
+
+   backup_error:
+        
+       source_error: §c§l该指令只能由玩家输入!
+        
+       repeat_backup: §c§l备份正在进行,请不要重复备份!
+        
+       dim_error: §c维度输入错误
+        
+       dim_repeat: §c维度输入重复
+        
+       timeout: "[RBU] §c备份§f超时,已取消备份"
+
+       dynamic_more_than: §b动态备份§f槽位§c已满§f,最大数量为§e{}§f个,已存在§e{}§f个!
+
+       static_more_than: §b静态备份§f槽位§c已满§f,最大数量为§e{}§f个,已存在§e{}§f个!
+        
+       unknown_error: "备份出错,错误信息: §c{}"
+
+
+   back_error:
+
+       dim_error: §c维度输入错误
+        
+       lack_info: §c该槽位无info.json文件或槽位不存在,无法回档
+        
+       lack_region: §c该槽位无区域文件,无法回档
+        
+       timeout: §a回档超时,已取消本次回档
+        
+       repeat_back: §c§l回档正在进行,请不要重复回档!
+        
+       unknown_error: 回档出错,错误信息:§c{}
+        
+       server_error: 服务端关闭异常,回档终止
+        
+       wrong_dim: 请检查info.json里的维度信息是否正确
+
+
+
+   del_error:
+        
+       lack_slot: §4§l槽位{}不存在
+        
+       unknown_error: 删除备份时出错,错误信息:§c{}
+
+
+   backup:
+        
+       start: "[RBU] §a备份§f中...请稍等"
+        
+       date: "[RBU] 日期: {}; 注释: {}"
+        
+       done: "[RBU] §a备份§f完成，耗时§6{}§f秒"
+
+
+   back:
+        
+       start: "[RBU] 准备将存档恢复至槽位§6{}§f，日期 {}; 注释: {}"
+        
+       click: "[RBU] 使用#sc=!!rb confirm<>st=点击确认#§7!!rb confirm §f确认§c回档§f，#sc=!!rb abort<>st=点击取消#§7!!rb abort §f取消"
+                
+       abort: §a回档已取消
+         
+       countdown: §c服务器将于{0}秒后关闭回档!
+        
+       count: "§a服务器还有{}秒关闭，输入#sc=!!rb abort<>st=终止回档#§c!!rb abort§f来停止回档到槽位§6{}"
+        
+       run: §a正在运行文件替换
+        
+
+   list:
+        
+       empty_slot: 没有槽位存在
+
+       out_page: §c超出页数范围
+
+       dynamic: §d【动态备份】
+
+       static: §d【静态备份】
+
+       slot_info:  '#st=备份维度: §a{5} §f备份用户: §b{6} §f备份指令: §6{7}#[槽位§6{0}§f] #sc=!!rb back {4} {0}<>st=回档至槽位§6{0}#§a[▷] #sc=!!rb del {4} {0}<>st=删除槽位§6{0}#§c[x] ##§a{1} §f{2} 注释: {3}'
+        
+       empty_size: "[槽位§6{}§f] 空或者缺少info.json文件"
+
+       last_page: "#st=当前为第{0}页,点击转到第{1}页<>sc=!!rb list {2} {1}#§b[上一页]"
+
+       next_page: "#st=当前为第{0}页,点击转到第{1}页<>sc=!!rb list {2} {1}#§d[下一页]"
+
+       page: "##§7[§a{0}§7/§e{1}§7]"
+
+       total_size: "动态备份占用: §6{} §r静态备份占用: §b{} §r总占用: §a{}"
+
+
+   update_slot:
+
+       start: §a正在进行备份升级,这可能需要一段时间,期间请不要使用插件任何功能!
+
+       non-need: §c当前备份不需要升级，只有1.8.4版本及之前创建的备份需要！
+
+       done: §a成功升级了§e{}§a个备份
+
+
+   comment:
+
+       empty_comment: §7空
+
+       overwrite_comment: §7这是回档时插件自动创建的覆盖备份
+
+       console: 服务器后台
+
+
+    
+>>>>>>> origin/main

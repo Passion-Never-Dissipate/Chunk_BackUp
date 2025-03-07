@@ -1,20 +1,21 @@
 {
 	"id": "chunk_backup",
-	"version": "beta",
-	"name": "Chunk Backup",
+	"version": "1.0.0",
+	"name": "Chunk BackUp",
 	"description": {
-		"en_us": "A plugin for original block backup",
-		"zh_cn": "一个原版区块备份的插件"
+		"en_us": "An MCDR plugin that backs up or backs up files on a regional basis",
+		"zh_cn": "一个以区块为单位备份或回档的MCDR插件"
 	},
 	"author": [
-		"Bexerlmao","FRUITS_CANDY"
+		"FRUITS_CANDY","Bexerlmao","SeeU_SAMA"
 	],
 	"link": "https://github.com/Passion-Never-Dissipate/Chunk_BackUp",
 	"dependencies": {
 		"mcdreforged": ">=2.7.0"
 	},
-	"archive_name": "chunk_backup-{version}",
+	"archive_name": "Region-BackUp-v{version}",
 	"resources": [
-		"LICENSE"
+		"LICENSE",
+		"lang"
 	]
 }

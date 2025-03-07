@@ -1,6 +1,6 @@
 import re
 
-from mcdreforged.api.rtext import *
+from mcdreforged.api.rtext import RStyle, RAction, RColor, RText, RTextList
 
 color_and_style_dict = {
     "§k": [RStyle.obfuscated, "style"],

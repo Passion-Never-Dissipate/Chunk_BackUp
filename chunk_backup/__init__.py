@@ -6,19 +6,18 @@ import time
 import math
 import traceback
 
-from mcdreforged.api.all import *
-from typing import *
-from region_backup.config import cb_info, cb_config
-from region_backup.handle_file import safe_load_json, FileStatsAnalyzer as analyzer
-from region_backup.region import Region as region
-from region_backup.region import ChunkSelector as selector
-from region_backup.json_message import Message
+from typing import Optional
+from mcdreforged.api.types import Info, InfoCommandSource, CommandSource, ServerInterface, PluginServerInterface
+from mcdreforged.api.command import SimpleCommandBuilder, Requirements, Number, Integer, GreedyText, Text
+from mcdreforged.api.decorator import new_thread
+from chunk_backup.config import cb_info, cb_config
+from chunk_backup.tools import tr, safe_load_json, FileStatsAnalyzer as analyzer
+from chunk_backup.region import Region as region
+from chunk_backup.region import ChunkSelector as selector
+from chunk_backup.json_message import Message
 
 Prefix = '!!cb'
-cfg = {
-    "config": cb_config,
-    "info": cb_info
-}
+cfg = cb_config
 server_path = cb_config.server_path
 dimension_info = cb_config.dimension_info
 region_obj: Optional[region] = None
@@ -53,8 +52,13 @@ def check_backup_state(func):
             source.get_server().execute("save-on")
 
         finally:
-            region.backup_state = None
             server_data = None
+            if region.backup_state:
+                region_obj = None
+                region.backup_state = None
+
+            if region.back_state:
+                region.back_state = None
 
     return wrapper
 
@@ -76,17 +80,23 @@ def cb_make(src: InfoCommandSource, dic: dict):
     if not region_obj:
         src.reply(tr("backup_error.timeout"))
         return
-    region_obj.backup_path = region.get_backup_path(src.get_info().content)
-    max_msg = region.organize_slot(region_obj.backup_path, rename=1)
-    if max_msg:
-        src.get_server().broadcast(max_msg)
+    swap_dict = region.swap_dimension_key(dimension_info)
+    if not (server_data.dimension in swap_dict):
+        src.reply("没有该维度")
         return
-    selected = selector(((server_data.coord[:1], server_data.coord[2:], radius),)).group_by_region()
-    region_obj.coord = selected
-    """if region.copy(server_data.dimension, backup_path, coord):
-        src.get_server().broadcast(tr("config_error"))
-        return"""
-    region_obj.save_info_file(src.get_info().content, dic["comment"], src)
+    region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
+    if not region.organize_slot(src, region_obj.backup_path, cfg, rename=True):
+        return
+    region_obj.src = src
+    region_obj.dimension.append(server_data.dimension)
+    region_obj.world_name = swap_dict[server_data.dimension]["world_name"]
+    region_obj.region_folder = swap_dict[server_data.dimension]["region_folder"]
+
+    selected = selector((((server_data.coord[0], server_data.coord[-1]), radius),)).group_by_region()
+    region_obj.coords = selected
+    region_obj.src = src
+    region_obj.copy()
+    region_obj.save_info_file(src, dic["comment"])
     t1 = time.time()
     src.get_server().broadcast(
         tr("backup.done", f"{(t1 - t):.2f}")
@@ -95,6 +105,7 @@ def cb_make(src: InfoCommandSource, dic: dict):
     src.get_server().broadcast(
         tr("backup.date", f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"{dic['comment']}")
     )
+
     src.get_server().execute("save-on")
 
 
@@ -108,6 +119,9 @@ def cb_pos_make(src: InfoCommandSource, dic: dict):
     if str(dic["dimension_int"]) not in dimension_info:
         src.reply(tr("backup_error.dim_error"))
         return
+    if not region.check_dimension(dimension_info):
+        src.reply("维度配置文件重复")
+        return
     t = time.time()
     src.get_server().broadcast(tr("backup.start"))
     server_data = GetServerData()
@@ -115,17 +129,17 @@ def cb_pos_make(src: InfoCommandSource, dic: dict):
     if not region_obj:
         src.reply(tr("backup_error.timeout"))
         return
-    region_obj.backup_path = region.get_backup_path(src.get_info().content)
-    max_msg = region.organize_slot(region_obj.backup_path, rename=1)
-    if max_msg:
-        src.get_server().broadcast(max_msg)
+    region_obj.src = src
+    region_obj.dimension.append(dimension_info[str(dic["dimension_int"])]["dimension"])  # 此处暂时这样写，后续必须改进
+    region_obj.world_name = dimension_info[str(dic["dimension_int"])]["world_name"]
+    region_obj.region_folder = dimension_info[str(dic["dimension_int"])]["region_folder"]
+    region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
+    if not region.organize_slot(src, region_obj.backup_path, cfg, rename=True):
         return
     selected = selector(coord).group_by_region()
-    region_obj.coord = selected
-    """if region.copy(str(dic["dimension_int"]), backup_path, coord):
-        src.reply(tr("config_error"))
-        return"""
-    region_obj.save_info_file(src.get_info().content, dic["comment"], src)
+    region_obj.coords = selected
+    region_obj.copy()
+    region_obj.save_info_file(src, dic["comment"])
     t1 = time.time()
     src.get_server().broadcast(
         tr("backup.done", f"{(t1 - t):.2f}")
@@ -152,6 +166,9 @@ def cb_dim_make(src: InfoCommandSource, dic: dict):
         if dim not in dimension_info:
             src.reply(tr("backup_error.dim_error"))
             return
+    if not region.check_dimension(dimension_info):
+        src.reply("维度配置文件重复")
+        return
     t = time.time()
     src.get_server().broadcast(tr("backup.start"))
     server_data = GetServerData()
@@ -159,16 +176,13 @@ def cb_dim_make(src: InfoCommandSource, dic: dict):
     if not region_obj:
         src.reply(tr("backup_error.timeout"))
         return
-    region_obj.backup_path = region.get_backup_path(src.get_info().content)
-    max_msg = region.organize_slot(region_obj.backup_path, rename=1)
-    if max_msg:
-        src.get_server().broadcast(max_msg)
+    region_obj.backup_type = "region"
+    region_obj.dimension = dimension  # 这里的dimension是一个数字维度键列表
+    region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
+    if not region.organize_slot(src, region_obj.backup_path, cfg, rename=True):
         return
-    """for dim in dimension:
-        if region.copy(dim, backup_path):
-            source.reply(tr("config_error"))
-            return"""
-    region_obj.save_info_file(src.get_info().content, dic["comment"], src)
+    region_obj.copy()
+    region_obj.save_info_file(src, dic["comment"])
     t1 = time.time()
     src.get_server().broadcast(
         tr("backup.done", f"{(t1 - t):.2f}")
@@ -185,48 +199,76 @@ def cb_dim_make(src: InfoCommandSource, dic: dict):
 def cb_back(src: InfoCommandSource, dic: dict):
     global region_obj
     region_obj = region()
+    region_obj.cfg = cfg
     region.back_state = 1
-    region_obj.backup_path = region.get_backup_path(src.get_info().content)
+    region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
     if not dic:
         if src.get_info().content.split()[1] == "restore":
-            region_obj.slot = cfg["config"].overwrite_backup_folder
+            region_obj.slot = cfg.overwrite_backup_folder
         else:
             region_obj.slot = "slot1"
     else:
         region_obj.slot = f"slot{dic['slot']}"
-    info_path = os.path.join(region_obj.backup_path, dic["slot"], "info.json")
+    info_path = os.path.join(region_obj.backup_path, region_obj.slot, "info.json")
     if not os.path.exists(info_path):
         src.reply(tr("back_error.lack_info"))
         return
-    """if not region.get_total_size([
-        os.path.join(
-            backup_path, dic["slot"], i) for i in os.listdir(
-            os.path.join(
-                backup_path, dic["slot"]
-            )
-        )
-        if os.path.isdir(os.path.join(backup_path, dic["slot"], i))
-    ])[-1]:
-        src.reply(tr("back_error.lack_region"))
-        return"""
+
     info = safe_load_json(info_path)
 
-    _time = info["time"]
+    swap_dict = region.swap_dimension_key(dimension_info)
+
+    if not swap_dict or any(i not in swap_dict for i in info["backup_dimension"]):
+        region_obj = None
+        src.reply(tr("back_error.wrong_dim"))
+        return
+
+    region_obj.dimension = info["backup_dimension"]
+    region_obj.backup_type = info["backup_type"]
+
+    if region_obj.backup_type == "chunk":
+        region_obj.region_folder = swap_dict[region_obj.dimension[0]]["region_folder"]
+        for folder in region_obj.region_folder:
+            region_path = os.path.join(region_obj.backup_path, region_obj.slot, info["world_name"][0], folder)
+            folder_obj = analyzer(region_path)
+            folder_obj.scan_by_extension([".mca", ".region"])
+            if folder_obj.get_ext_report():
+                continue
+            region_obj = None
+            src.reply("有文件夹是空的")
+            return
+
+    else:
+        for d in region_obj.dimension:
+            for folder in swap_dict[d]["region_folder"]:
+                world_name = swap_dict[d]["world_name"]
+                region_path = os.path.join(region_obj.backup_path, region_obj.slot, world_name, folder)
+                folder_obj = analyzer(region_path)
+                folder_obj.scan_by_extension([".mca"])
+                if folder_obj.get_ext_report():
+                    continue
+                region_obj = None
+                src.reply("有文件夹是空的")
+                return
+
+    time_ = info["time"]
     comment = info["comment"]
 
     src.reply(
         Message.get_json_str(
-            "\n".join([tr("back.start", dic["slot"].replace("slot", "", 1), _time, comment), tr("back.click")]))
+            "\n".join([tr("back.start", region_obj.slot.replace("slot", "", 1), time_, comment), tr("back.click")]))
     )
     t1 = time.time()
     region.back_state = 2
     while region.back_state == 2:
         if time.time() - t1 > countdown:
+            region_obj = None
             src.reply(tr("back_error.timeout"))
             return
         time.sleep(0.01)
 
     if region.back_state == -1:
+        region_obj = None
         src.reply(tr("back.abort"))
         return
     src.get_server().broadcast(tr("back.countdown", countdown))
@@ -234,15 +276,35 @@ def cb_back(src: InfoCommandSource, dic: dict):
     for t in range(1, countdown):
         time.sleep(1)
         if region.back_state == -1:
+            region_obj = None
             src.reply(tr("back.abort"))
             return
         src.get_server().broadcast(
             Message.get_json_str(
-                tr("back.count", f"{countdown - t}", dic["slot"].replace("slot", "", 1))
+                tr("back.count", f"{countdown - t}", region_obj.slot.replace("slot", "", 1))
             )
         )
-    region.back_slot = dic["slot"]
     src.get_server().stop()
+
+
+def on_server_stop(server: PluginServerInterface, server_return_code: int):
+    global region_obj
+    try:
+        if not region.backup_state and isinstance(region_obj, region):
+            if server_return_code != 0:
+                server.logger.error(tr("back_error.server_error"))
+                return
+            server.logger.info(tr("back.run"))
+            region_obj.back()
+            region_obj.save_info_file()
+            server.start()
+
+    except Exception:
+        server.logger.error(tr("back_error.unknown_error", traceback.format_exc()))
+
+    finally:
+        region_obj = None
+        region.clear()
 
 
 def cb_abort(source: CommandSource):
@@ -260,58 +322,10 @@ def cb_confirm(source: CommandSource):
     region.back_state = 3
 
 
-def on_server_stop(server: PluginServerInterface, server_return_code: int):
-    global region_obj
-    try:
-        if region.back_state and isinstance(region_obj, region):
-            if server_return_code != 0:
-                server.logger.error(tr("back_error.server_error"))
-                return
-            server.logger.info(tr("back.run"))
-            backup_path = region_obj.backup_path
-            info = safe_load_json(os.path.join(backup_path, region_obj.slot, "info.json"))
-
-            dimension = info["backup_dimension"].split(",")
-
-            new_dict = region.swap_dimension_key(dimension_info)
-
-            if not new_dict:
-                server.logger.error(tr("back_error.wrong_dim"))
-                return
-
-            for i in dimension:
-                if i not in new_dict:
-                    server.logger.error(tr("back_error.wrong_dim"))
-                    return
-
-            """dimension = info["backup_dimension"].split(",")
-            all_dimension = [d for d in dimension_info.values()]
-            if not all(i in [v["dimension"] for v in all_dimension] for i in dimension):
-                region.clear()
-                server.logger.error(tr("back_error.wrong_dim"))
-                return
-
-            region_folder = {}
-            dimension = set(dimension)  # 转换为集合，自动去重
-            for v in all_dimension:
-                if v["dimension"] in dimension:  # 直接检查是否在集合中
-                    region_folder[v["dimension"]] = [v["world_name"], v["region_folder"]]"""
-
-            server.start()
-
-    except Exception:
-        server.logger.error(tr("back_error.unknown_error", traceback.format_exc()))
-        return
-
-    finally:
-        region_obj = None
-        region.clear()
-
-
 def cb_del(source: InfoCommandSource, dic: dict):
     try:
         # 获取文件夹地址
-        backup_path = region.get_backup_path(source.get_info().content)
+        backup_path = region.get_backup_path(cfg, source.get_info().content)
         s = os.path.join(backup_path, f"slot{dic['slot']}")
         # 删除整个文件夹
         if os.path.exists(s):
@@ -325,9 +339,9 @@ def cb_del(source: InfoCommandSource, dic: dict):
 
 
 def cb_list(source: InfoCommandSource, dic: dict):
-    backup_path = region.get_backup_path(source.get_info().content)
-    dynamic = (backup_path == cfg["config"].backup_path)
-    slot_ = region.organize_slot(backup_path)
+    backup_path = region.get_backup_path(cfg, source.get_info().content)
+    dynamic = (backup_path == cfg.backup_path)
+    slot_ = region.organize_slot(backup_path=backup_path, cfg=cfg)
     if not slot_:
         source.reply(tr("list.empty_slot"))
         return
@@ -354,9 +368,10 @@ def cb_list(source: InfoCommandSource, dic: dict):
                 dimension = info['backup_dimension']
                 user = info["user"]
                 command = info["command"]
-                size = region.get_total_size([os.path.join(backup_path, name)])
+                size_slot = analyzer(os.path.join(backup_path, name))
+                size_slot.scan_all_files(include_subdirs=True)
                 msg = tr(
-                    "list.slot_info", i, size[0], t, comment, "-s"
+                    "list.slot_info", i, size_slot.get_full_report()["all_files"]["total_size_human"], t, comment, "-s"
                     if not dynamic else "", dimension, user, command
                 )
                 msg_list.append(msg)
@@ -376,11 +391,16 @@ def cb_list(source: InfoCommandSource, dic: dict):
             msg_list.append(msg)
 
         source.reply(Message.get_json_str("\n".join(msg_list)))
-        dynamic_ = region.get_total_size([cfg["config"].backup_path])[-1]
-        static_ = region.get_total_size([cfg["config"].static_backup_path])[-1]
+        dynamic_ = analyzer(cfg.backup_path)
+        dynamic_.scan_all_files(include_subdirs=True)
+        static_ = analyzer(cfg.static_backup_path)
+        static_.scan_all_files(include_subdirs=True)
         msg = tr(
-            "list.total_size", region.convert_bytes(dynamic_),
-            region.convert_bytes(static_), region.convert_bytes(dynamic_ + static_)
+            "list.total_size", dynamic_.get_full_report()["all_files"]["total_size_human"],
+            static_.get_full_report()["all_files"]["total_size_human"],
+            analyzer.format_size(
+                dynamic_.get_full_report()["all_files"]["total_size_bytes"] + static_.get_full_report()["all_files"][
+                    "total_size_bytes"])
         )
         source.reply(msg)
 
@@ -391,31 +411,23 @@ def cb_list(source: InfoCommandSource, dic: dict):
 
 def cb_reload(source: CommandSource):
     source.reply(tr("reload"))
-    source.get_server().reload_plugin("region_backup")
-
-
-def tr(key, *args):
-    return ServerInterface.get_instance().tr(f"region_backup.{key}", *args)
+    source.get_server().reload_plugin("chunk_backup")
 
 
 def on_info(server: PluginServerInterface, info: Info):
     if isinstance(server_data, GetServerData) and not region_obj:
-        if isinstance(server_data.player, str) and info.content.startswith(
-                f"{server_data.player} has the following entity data: ") \
-                and not server_data.save_all and not server_data.save_off and info.is_from_server:
+        if isinstance(server_data.player, str) and info.content.startswith(f"{server_data.player} has the following entity data: ") and not server_data.save_all and not server_data.save_off and info.is_from_server:
             if not server_data.coord:
                 server_data.coord = info.content.split(sep="entity data: ")[-1]
             else:
                 server_data.dimension = info.content.split(sep="entity data: ")[-1]
             return
 
-        if info.content.startswith("Saved the game") and info.is_from_server \
-                and not server_data.dimension and not server_data.coord:
+        if info.content.startswith("Automatic saving is now disabled") and info.is_from_server:
             server_data.save_off = 1
             return
 
-        if info.content.startswith("Automatic saving is now disabled") \
-                and not server_data.dimension and not server_data.coord:
+        if info.content.startswith("Saved the game") and info.is_from_server:
             server_data.save_all = 1
 
 
@@ -460,8 +472,8 @@ class GetServerData:
                 region_obj = None
                 return
             time.sleep(0.01)
-
         region_obj = region()
+        region_obj.cfg = cfg
 
 
 def on_load(server: PluginServerInterface, old):
@@ -471,17 +483,17 @@ def on_load(server: PluginServerInterface, old):
         server_data = old.server_data
         region_obj = old.region_obj
 
-    if not os.path.exists(server.get_data_folder()):
-        server.save_config_simple(config=cb_config.get_default())
+    if not os.path.exists(os.path.join(server.get_data_folder(), "chunk_backup.json")):
+        server.save_config_simple(file_name="chunk_backup.json", config=cb_config.get_default())
 
-    cfg["config"] = server.load_config_simple(target_class=cb_config)
+    cfg = server.load_config_simple(file_name="chunk_backup.json", target_class=cb_config)
 
-    Prefix = cfg["config"].prefix
-    server_path = cfg["config"].server_path
-    dimension_info = cfg["config"].dimension_info
+    Prefix = cfg.prefix
+    server_path = cfg.server_path
+    dimension_info = cfg.dimension_info
 
     server.register_help_message(Prefix, tr("register_message"))
-    lvl = cfg["config"].minimum_permission_level
+    lvl = cfg.minimum_permission_level
     require = Requirements()
     builder = SimpleCommandBuilder()
 

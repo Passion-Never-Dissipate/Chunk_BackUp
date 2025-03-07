@@ -5,13 +5,40 @@ import re
 import math
 import shutil
 import time
-import traceback
 import copy
+
+from typing import Optional
 from collections import defaultdict
-from region_backup import cfg, tr
-from region_backup.config import cb_info
-from concurrent.futures import ThreadPoolExecutor
-from mcdreforged.api.all import *
+from chunk_backup.config import cb_config, cb_info
+from chunk_backup.chunk import Chunk as chunk
+from chunk_backup.tools import tr, FileStatsAnalyzer as analyzer
+from mcdreforged.api.types import InfoCommandSource
+
+
+def ignore_specific_files(src_dir, extensions):
+    src_dir = os.path.normpath(src_dir)
+
+    def _ignore_func(dir_path, filenames):
+        # 如果当前目录不在源目录内，直接忽略所有内容（安全防护）
+        if os.path.commonpath([src_dir, dir_path]) != src_dir:
+            return filenames
+
+        # 如果是子目录，直接忽略所有内容
+        if os.path.normpath(dir_path) != src_dir:
+            return filenames
+
+        ignored = []
+        for filename in filenames:
+            file_path = os.path.join(dir_path, filename)
+            # 忽略所有子目录（严格判断类型）
+            if os.path.isdir(file_path):
+                ignored.append(filename)
+            # 忽略不匹配扩展名的文件
+            elif not any(filename.endswith(ext) for ext in extensions):
+                ignored.append(filename)
+        return ignored
+
+    return _ignore_func
 
 
 class Region:
@@ -19,17 +46,165 @@ class Region:
     back_state = None
 
     def __init__(self):
-        self.slot = None
-        self.backup_path = None
+        self.cfg = cb_config
+        self.src: Optional[InfoCommandSource] = None
+        self.backup_type: str = "chunk"
+        self.backup_path: Optional[str] = None
+        self.slot: str = "slot1"
+        self.coords: Optional[dict] = None
+        self.dimension: Optional[str, list] = []
+        self.world_name: Optional[str, list] = []
+        self.region_folder: Optional[list] = None
 
-    def save_info_file(self, command=None, comment=None, src=None):
+    def copy(self):
+        time.sleep(0.1)
+
+        if self.backup_type == "chunk":
+
+            source_dir = [os.path.join(self.cfg.server_path, self.world_name, folder) for folder in self.region_folder]
+            target_dir = [os.path.join(self.backup_path, self.slot, self.world_name, folder) for folder in
+                          self.region_folder]
+
+            for source in source_dir:
+                for folder in self.coords:
+                    if not os.path.exists(os.path.join(source, folder.replace("region", "mca"))):
+                        self.src.get_server().broadcast("区块备份范围内有区块对应的区域文件尚未在世界上生成,请调整备份范围")
+                        return
+
+            for source, target in zip(source_dir, target_dir):
+                os.makedirs(target, exist_ok=True)
+                chunk.export_grouped_regions(source, target, self.coords)
+
+        else:
+            server_path = self.cfg.server_path
+            diemsnion_info = self.cfg.dimension_info
+            for dimension in self.dimension:
+                world_name = diemsnion_info[dimension]["world_name"]
+                self.world_name.append(world_name)
+                region_folder = diemsnion_info[dimension]["region_folder"]
+                source_dir = [os.path.join(server_path, world_name, folder) for folder in region_folder]
+                target_dir = [os.path.join(self.backup_path, self.slot, world_name, folder) for folder in region_folder]
+                extensions = (".mca",)
+                for source, target in zip(source_dir, target_dir):
+                    if os.path.exists(target):
+                        shutil.rmtree(target, ignore_errors=True)
+                    shutil.copytree(
+                        source,
+                        target,
+                        ignore=ignore_specific_files(source, extensions),
+                        dirs_exist_ok=True
+                    )
+            self.dimension = [diemsnion_info[d]["dimension"] for d in self.dimension]
+
+        return True
+
+    def back(self):
+        overwrite_folder = os.path.join(self.cfg.backup_path, self.cfg.overwrite_backup_folder)
+        server_path = self.cfg.server_path
+        swap_dict = Region.swap_dimension_key(self.cfg.dimension_info)
+
+        if os.path.exists(overwrite_folder) and self.slot != self.cfg.overwrite_backup_folder:
+            shutil.rmtree(overwrite_folder)
+            os.makedirs(overwrite_folder)
+
+        backup_path = self.backup_path
+        if self.slot != self.cfg.overwrite_backup_folder:
+            for dimension in self.dimension:
+                world_name = swap_dict[dimension]["world_name"]
+                region_folder = swap_dict[dimension]["region_folder"]
+                for region_dir in region_folder:
+                    source_dir = os.path.join(backup_path, self.slot, world_name, region_dir)
+                    target_dir = os.path.join(server_path, world_name, region_dir)
+                    overwrite_dir = os.path.join(overwrite_folder, world_name, region_dir)
+                    if self.backup_type == "chunk":
+                        Region._process_chunk(source_dir, target_dir, overwrite_dir)
+                    else:
+                        Region._process_region(source_dir, target_dir, overwrite_dir)
+
+        else:
+            for dimension in self.dimension:
+                world_name = swap_dict[dimension]["world_name"]
+                region_folder = swap_dict[dimension]["region_folder"]
+                for region_dir in region_folder:
+                    source_dir = os.path.join(backup_path, self.slot, world_name, region_dir)
+                    target_dir = os.path.join(server_path, world_name, region_dir)
+                    if self.backup_type == "chunk":
+                        Region._process_chunk(source_dir, target_dir)
+                    else:
+                        Region._process_region(source_dir, target_dir)
+
+    @classmethod
+    def _process_chunk(cls, source_dir, target_dir, overwrite_dir=None):
+        ext = [".region", ".mca"]
+        region = analyzer(source_dir)
+        region.scan_by_extension(ext)
+        all_ = region.get_ext_report()
+        if overwrite_dir:
+            os.makedirs(overwrite_dir, exist_ok=True)
+        if ".mca" in all_:
+            for file in all_[".mca"]["files"]:
+                source_file = os.path.join(source_dir, file)
+                target_file = os.path.join(target_dir, file)
+                if os.path.exists(target_file) and overwrite_dir:
+                    overwrite_file = os.path.join(overwrite_dir, file)
+                    shutil.copy2(target_file, overwrite_file)
+                shutil.copy2(source_file, target_file)
+
+        if ".region" in all_:
+            for file in all_[".region"]["files"]:
+                source_file = os.path.join(source_dir, file)
+                target_file = os.path.join(target_dir, file.replace(".region", ".mca"))
+
+                overwrite_file = os.path.join(overwrite_dir, file) if overwrite_dir else overwrite_dir
+                chunk.merge_region_file(source_file, target_file, overwrite=True, backup_path=overwrite_file)
+
+        if overwrite_dir:
+            with os.scandir(overwrite_dir) as entries:
+                for _ in entries:
+                    break
+                else:
+                    os.rmdir(overwrite_dir)
+
+    @classmethod
+    def _process_region(cls, source_dir, target_dir, overwrite_dir=None):
+        if os.path.exists(target_dir) and overwrite_dir:
+            shutil.copytree(
+                target_dir,
+                overwrite_dir,
+                ignore=ignore_specific_files(target_dir, (".mca",)),
+                dirs_exist_ok=True
+            )
+            shutil.rmtree(target_dir, ignore_errors=True)
+
+        shutil.copytree(
+            source_dir,
+            target_dir,
+            ignore=ignore_specific_files(source_dir, (".mca",)),
+            dirs_exist_ok=True
+        )
+
+        if overwrite_dir:
+            with os.scandir(overwrite_dir) as entries:
+                has_mca = False
+
+                for entry in entries:
+                    if entry.is_file() and entry.name.endswith(".mca"):  # type: ignore
+                        has_mca = True
+                        break
+
+                # 当没有.mca文件时删除
+                if not has_mca:
+                    shutil.rmtree(overwrite_dir)
+
+    def save_info_file(self, src: InfoCommandSource = None, comment=None):
         info_path = os.path.join(self.backup_path, self.slot, "info.json")
         info = cb_info.get_default().serialize()
         info["time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        info["backup_dimension"] = getattr(self, "dimension")
-        info["user"] = src.get_info().player if src else tr("comment.console")
-        info["command"] = command
-        info["comment"] = comment
+        info["user"] = src.get_info().player if src and src.get_info().is_player else tr("comment.console")
+        info["backup_dimension"] = self.dimension
+        info["command"] = src.get_info().content
+        info["comment"] = comment if comment else tr("comment.empty_comment")
+        info["backup_type"] = self.backup_type
 
         with open(info_path, "w", encoding="utf-8") as fp:
             json.dump(info, fp, ensure_ascii=False, indent=4)
@@ -40,62 +215,16 @@ class Region:
         cls.back_state = None
 
     @classmethod
-    def save_backup_path_(cls, backup_path):
-        cls.__backup_path = backup_path
-
-    @classmethod
-    def get_backup_path(cls, command):
+    def get_backup_path(cls, cfg, command):
         if len(command.split()) > 2 and command.split()[2] == "-s":
-            return cfg["config"].static_backup_path
-        return cfg["config"].backup_path
+            return cfg.static_backup_path
+        return cfg.backup_path
 
     @classmethod
-    def get_total_size(cls, folder_paths):
-        """计算多个文件夹的总大小（多线程优化）"""
-        total_size = 0
-        with ThreadPoolExecutor() as executor:
-            futures = {executor.submit(cls.get_folder_size, folder_path): folder_path for folder_path in folder_paths}
-            for future in futures:
-                try:
-                    total_size += future.result()
-                except Exception:
-                    folder_path = futures[future]
-                    ServerInterface.get_instance().logger.info(
-                        f"计算§c{folder_path}§r的大小时出错:§e{traceback.format_exc()}")
-
-        return cls.convert_bytes(total_size), total_size
-
-    @classmethod
-    def get_folder_size(cls, folder_path):
-        """计算单个文件夹的大小"""
-        total_size = 0
-        for dirpath, dirnames, filenames in os.walk(folder_path):
-            for filename in filenames:
-                file_path = os.path.join(dirpath, filename)
-                try:
-                    # 解析符号链接
-                    real_path = os.path.realpath(file_path)
-                    total_size += os.path.getsize(real_path)
-                except (FileNotFoundError, PermissionError):
-                    # 忽略无法访问的文件
-                    continue
-
-        return total_size
-
-    @classmethod
-    def convert_bytes(cls, size):
-        """将字节数转换为人类可读的格式（如 KB、MB、GB）"""
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if size < 1024:
-                return f"{size:.2f}{unit}"
-            size /= 1024
-
-        return f"{size:.2f}PB"
-
-    @classmethod
-    def organize_slot(cls, backup_path=cfg["config"].backup_path, rename=None):
-        if not os.path.exists(backup_path):
-            os.makedirs(backup_path)
+    def organize_slot(cls, src: InfoCommandSource = None, backup_path=None, cfg=cb_config, rename=False):
+        if not os.path.exists(cfg.backup_path) or not os.path.exists(cfg.static_backup_path):
+            os.makedirs(cfg.backup_path, exist_ok=True)
+            os.makedirs(cfg.static_backup_path, exist_ok=True)
         pattern = re.compile(r'^slot([1-9]\d*)$')
         slot_list = [
             i for i in os.listdir(backup_path) if os.path.isdir(os.path.join(backup_path, i)) and pattern.match(i)
@@ -131,7 +260,8 @@ class Region:
                     "backup_error.dynamic_more_than", max_slots, len(sorted_list)
                 )
 
-                return msg
+                src.get_server().broadcast(msg)
+                return
 
             if len(sorted_list) == max_slots:
                 if backup_path != cfg.backup_path:
@@ -144,7 +274,7 @@ class Region:
                 clear_temp()
 
             os.makedirs(os.path.join(backup_path, "slot1"), exist_ok=True)
-            return
+            return True
 
         if slot_list:
             rename_slots()
@@ -153,169 +283,6 @@ class Region:
         return len(
             [i for i in os.listdir(backup_path) if os.path.isdir(os.path.join(backup_path, i)) and pattern.match(i)]
         )
-
-    @classmethod
-    def coordinate_transfer(cls, raw_coordinate, r=0, command="make"):
-        if command == "make":
-            x, z = raw_coordinate
-            return cls.coordinate_transfer(
-                [
-                    (int(x // 16 - r) // 32, int(x // 16 + r) // 32), (int(z // 16 + r) // 32, int(z // 16 - r) // 32)
-                ],
-                command="pos_make"
-            )
-
-        elif command == "pos_make":
-            coordinate = []
-            left = min((raw_coordinate[0]))
-            right = max(raw_coordinate[0])
-            top = max(raw_coordinate[-1])
-            bottom = min(raw_coordinate[-1])
-
-            for x in range(left, right + 1):
-                for z in range(bottom, top + 1):
-                    coordinate.append((x, z))
-            return coordinate
-
-    @staticmethod
-    def _copy_files(src_folder, dst_folder, files=None):
-        """将指定文件从源文件夹复制到目标文件夹"""
-        if not files:
-            if os.path.exists(src_folder):
-                if os.path.exists(dst_folder):
-                    shutil.rmtree(dst_folder, ignore_errors=True)
-                shutil.copytree(src_folder, dst_folder)
-            return
-
-        for filename in files:
-            src_path = os.path.join(src_folder, filename)
-            dst_path = os.path.join(dst_folder, filename)
-            shutil.copy2(src_path, dst_path)
-
-    @classmethod
-    def _process_region(cls, folders, src_base, dst_base, slot_base=None, backup_mode="file"):
-        """处理单个区域的文件夹备份和恢复"""
-        for folder in folders:
-            src_folder = os.path.join(src_base, folder)
-            dst_folder = os.path.join(dst_base, folder)
-
-            if slot_base:
-                slot_folder = os.path.join(slot_base, folder)
-                if backup_mode == "file":
-                    os.makedirs(dst_folder, exist_ok=True)
-                    slot_files = os.listdir(slot_folder)
-                    # 备份源文件夹到覆盖备份路径
-                    cls._copy_files(src_folder, dst_folder, slot_files)
-                    # 从备份槽复制文件到源文件夹
-                    cls._copy_files(slot_folder, src_folder, slot_files)
-
-                else:
-                    if os.path.exists(src_folder):
-                        if os.path.exists(dst_folder):
-                            shutil.rmtree(src_folder, ignore_errors=True)
-                        shutil.copytree(src_folder, dst_folder)
-                        shutil.rmtree(src_folder, ignore_errors=True)
-                        shutil.copytree(slot_folder, src_folder)
-
-            else:
-                if backup_mode == "file":
-                    slot_files = os.listdir(dst_folder)
-                    # 从覆盖备份复制文件到源文件夹
-                    cls._copy_files(dst_folder, src_folder, slot_files)
-                else:
-                    if os.path.exists(dst_folder):
-                        shutil.rmtree(src_folder, ignore_errors=True)
-                        shutil.copytree(dst_folder, src_folder)
-
-    @classmethod
-    def back(cls, region_folder):
-        overwrite_folder = os.path.join(cfg.backup_path, cfg.overwrite_backup_folder)
-        backup_path = cls.get_backup_path_()
-        # 如果覆盖备份文件夹存在且当前备份槽不是覆盖备份文件夹，则清空覆盖备份文件夹
-        if os.path.exists(overwrite_folder) and cls.back_slot != cfg.overwrite_backup_folder:
-            shutil.rmtree(overwrite_folder)
-            os.makedirs(overwrite_folder)
-
-        with open(os.path.join(backup_path, cls.back_slot, "info.json"), "rb") as fp:
-            buffer = fp.read()
-            content = buffer.decode('utf-8') if buffer[:3] != b'\xef\xbb\xbf' else buffer[3:].decode('utf-8')
-            info = json.loads(content)
-
-        backup_mode = "folder" if info["command"].split()[1] == "dim_make" else "file"
-
-        # 如果当前备份槽不是覆盖备份文件夹，则进行备份和恢复操作
-        if cls.back_slot != cfg.overwrite_backup_folder:
-            for region_info in region_folder.values():
-                world_name, folders = region_info[0], region_info[-1]
-                region_origin = os.path.join(server_path, world_name)
-                region_overwrite = os.path.join(overwrite_folder, world_name)
-                region_slot = os.path.join(backup_path, cls.back_slot, world_name)
-                cls._process_region(
-                    folders, region_origin, region_overwrite, region_slot, backup_mode
-                )
-            cls.save_info_file(
-                list(region_folder.keys()), cfg.backup_path, info["command"], tr("comment.overwrite_comment"),
-                cfg.overwrite_backup_folder
-            )
-        else:
-            # 如果当前备份槽是覆盖备份文件夹，则直接从覆盖备份恢复
-            for region_info in region_folder.values():
-                world_name, folders = region_info[0], region_info[-1]
-                region_origin = os.path.join(server_path, world_name)
-                region_overwrite = os.path.join(overwrite_folder, world_name)
-                cls._process_region(folders, region_origin, region_overwrite, backup_mode=backup_mode)
-
-    @classmethod
-    def copy(cls, dimension, backup_path=cfg.backup_path, coordinate=None, slot_="slot1"):
-        time.sleep(0.1)
-
-        # 遍历 dimension_info 字典
-        for dim_key, info in dimension_info.items():
-            # 检查维度键是否匹配（考虑数字字符串和原始字符串）
-            if dimension == info["dimension"] or dim_key == dimension:
-                region_folder = info["region_folder"]
-                world_name = info["world_name"]
-                break  # 找到匹配项后退出循环
-        else:
-            # 如果没有找到匹配项，可以在这里处理（例如，设置默认值或抛出异常）
-            region_folder = None  # 或其他默认值
-            world_name = None  # 或其他默认值
-
-        if not region_folder or not world_name:
-            return 1
-
-        backup_dir = os.path.join(backup_path, slot_, world_name)
-
-        if not coordinate:
-            for folder in region_folder:
-                if os.path.exists(os.path.join(backup_dir, folder)):
-                    shutil.rmtree(os.path.join(backup_dir, folder))
-
-                try:
-                    shutil.copytree(
-                        os.path.join(server_path, world_name, folder),
-                        os.path.join(backup_dir, folder)
-                    )
-
-                except FileNotFoundError:
-                    continue
-            return
-
-        for i, folder in enumerate(region_folder):
-            os.makedirs(os.path.join(backup_dir, folder), exist_ok=True)
-            for positions in coordinate:
-                if not positions:
-                    continue
-                x, z = positions
-                file = f"r.{x}.{z}.mca"
-                try:
-                    shutil.copy2(
-                        os.path.join(server_path, world_name, folder, file),
-                        os.path.join(backup_dir, folder, file)
-                    )
-
-                except FileNotFoundError:
-                    continue
 
     @classmethod
     def check_dimension(cls, dimension_info):
@@ -332,11 +299,11 @@ class Region:
     def swap_dimension_key(cls, dimension_info):
         new_dict = {}
         if not cls.check_dimension(dimension_info):
-            return
+            return None
         for k1, v1 in dimension_info.items():
             v1_new = copy.deepcopy(v1)
             v1_new["dimension"] = k1
-            new_dict[v1["dimesnion"]] = v1_new
+            new_dict[v1["dimension"]] = v1_new
         return new_dict
 
 
@@ -358,8 +325,6 @@ class ChunkSelector:
 
     def _validate_input(self, coords):
         """增强参数验证（新增范围限制检查）"""
-        if not isinstance(coords, tuple) or len(coords) not in (1, 2):
-            raise ValueError("参数必须是包含1或2个元素的元组")
 
         # 公共验证逻辑
         def check_size(width, height):
@@ -382,13 +347,11 @@ class ChunkSelector:
         else:
             self.mode = 'square'
             (center_x, center_z), radius = coords[0]
-            if radius < 0:
-                raise ValueError("半径不能为负数")
-
+            print(center_x, center_z, radius)
             # 计算实际区块尺寸（边长 = 2r + 1）
             actual_size = 2 * radius + 1
             if actual_size > self.max_chunk_size:
-                raise ValueError(f"半径{radius}导致边长{actual_size}超过最大值{self.max_chunk_size}")
+                raise ValueError(f"给定区块半径{radius}导致区块边长{actual_size}超过最大值{self.max_chunk_size}")
 
             # 计算区块范围
             center_chunk = (math.floor(center_x / 16), math.floor(center_z / 16))
@@ -417,19 +380,19 @@ class ChunkSelector:
             region_x = chunk_x // 32
             region_z = chunk_z // 32
             region_key = f"r.{region_x}.{region_z}.mca"
-            local_x = chunk_x % 32
-            local_z = chunk_z % 32
-            region_map[region_key].add((local_x, local_z))
+            """local_x = chunk_x % 32
+            local_z = chunk_z % 32"""
+            region_map[region_key].add((chunk_x, chunk_z))
 
         # 第二步：构建结果字典
         result = {}
-        for region, chunks in region_map.items():
+        for _region, chunks in region_map.items():
             # 判断是否覆盖整个区域
             if len(chunks) == 32 * 32:
-                result[region] = region
+                result[_region] = _region
             else:
                 # 转换为排序后的元组列表
                 sorted_chunks = sorted(chunks, key=lambda c: (c[0], c[1]))
-                result[region] = [tuple(c) for c in sorted_chunks]
+                result[_region] = [tuple(c) for c in sorted_chunks]
 
         return result
