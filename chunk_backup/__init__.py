@@ -200,6 +200,7 @@ def cb_back(src: InfoCommandSource, dic: dict):
     global region_obj
     region_obj = region()
     region_obj.cfg = cfg
+    region_obj.src = src
     region.back_state = 1
     region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
     if not dic:
@@ -226,11 +227,14 @@ def cb_back(src: InfoCommandSource, dic: dict):
     region_obj.dimension = info["backup_dimension"]
     region_obj.backup_type = info["backup_type"]
 
+    '''
     if region_obj.backup_type == "chunk":
         region_obj.region_folder = swap_dict[region_obj.dimension[0]]["region_folder"]
         for folder in region_obj.region_folder:
-            region_path = os.path.join(region_obj.backup_path, region_obj.slot, info["world_name"][0], folder)
+            print (region_obj.backup_path, region_obj.slot, info["world_name"], folder)
+            region_path = os.path.join(region_obj.backup_path, region_obj.slot, info["world_name"], folder)
             folder_obj = analyzer(region_path)
+            folder_obj.scan_by_extension([".mca", ".region"])
             folder_obj.scan_by_extension([".mca", ".region"])
             if folder_obj.get_ext_report():
                 continue
@@ -250,6 +254,7 @@ def cb_back(src: InfoCommandSource, dic: dict):
                 region_obj = None
                 src.reply("有文件夹是空的")
                 return
+    '''
 
     time_ = info["time"]
     comment = info["comment"]

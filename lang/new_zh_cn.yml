@@ -9,7 +9,7 @@ chunk_backup:
 
 
   error:
-    player_error:
+    player_error: "空"
 
 
     system_error:

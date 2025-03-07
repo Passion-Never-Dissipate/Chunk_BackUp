@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 
 region_backup:
 
@@ -188,7 +188,7 @@ region_backup:
 
 
     
-=======
+
 
 chunk_backup:
 
@@ -376,5 +376,3 @@ chunk_backup:
        console: 服务器后台
 
 
-    
->>>>>>> origin/main

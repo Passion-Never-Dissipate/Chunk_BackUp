@@ -9,6 +9,7 @@ import copy
 
 from typing import Optional
 from collections import defaultdict
+
 from chunk_backup.config import cb_config, cb_info
 from chunk_backup.chunk import Chunk as chunk
 from chunk_backup.tools import tr, FileStatsAnalyzer as analyzer
@@ -200,11 +201,12 @@ class Region:
         info_path = os.path.join(self.backup_path, self.slot, "info.json")
         info = cb_info.get_default().serialize()
         info["time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        info["command"] = src.get_info().content if src and src.get_info().is_player else tr("comment.console")
         info["user"] = src.get_info().player if src and src.get_info().is_player else tr("comment.console")
         info["backup_dimension"] = self.dimension
-        info["command"] = src.get_info().content
         info["comment"] = comment if comment else tr("comment.empty_comment")
         info["backup_type"] = self.backup_type
+        info["world_name"] = self.world_name
 
         with open(info_path, "w", encoding="utf-8") as fp:
             json.dump(info, fp, ensure_ascii=False, indent=4)
