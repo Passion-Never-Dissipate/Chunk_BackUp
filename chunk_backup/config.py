@@ -1,5 +1,5 @@
 from mcdreforged.api.utils.serializer import Serializable
-from typing import Dict, Union, List
+from typing import Dict
 
 
 class cb_info(Serializable):
@@ -54,8 +54,10 @@ class cb_config(Serializable):
         "confirm": 1,
         "abort": 1,
         "reload": 2,
+        "force_reload": 3,
         "list": 0
     }
     slot: int = 10
     static_slot: int = 50
+    max_chunk_length: int = 320
     plugin_version: str = "1.0.0"

@@ -3,17 +3,17 @@
 	"version": "1.0.0",
 	"name": "Chunk BackUp",
 	"description": {
-		"en_us": "An MCDR plugin that backs up or backs up files on a regional basis",
+		"en_us": "A MCDR plugin that backs up or restores by chunk",
 		"zh_cn": "一个以区块为单位备份或回档的MCDR插件"
 	},
 	"author": [
-		"FRUITS_CANDY","Bexerlmao","SeeU_SAMA"
+		"FRUITS_CANDY","Bexerlmao"
 	],
 	"link": "https://github.com/Passion-Never-Dissipate/Chunk_BackUp",
 	"dependencies": {
 		"mcdreforged": ">=2.7.0"
 	},
-	"archive_name": "Region-BackUp-v{version}",
+	"archive_name": "Chunk BackUp-v{version}",
 	"resources": [
 		"LICENSE",
 		"lang"

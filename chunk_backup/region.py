@@ -13,14 +13,14 @@ from collections import defaultdict
 from chunk_backup.config import cb_config, cb_info
 from chunk_backup.chunk import Chunk as chunk
 from chunk_backup.tools import tr, FileStatsAnalyzer as analyzer
-from mcdreforged.api.types import InfoCommandSource
+from mcdreforged.api.types import InfoCommandSource, ServerInterface
 
 
 def ignore_specific_files(src_dir, extensions):
     src_dir = os.path.normpath(src_dir)
 
     def _ignore_func(dir_path, filenames):
-        # 如果当前目录不在源目录内，直接忽略所有内容（安全防护）
+        # 如果当前目录不在源目录内，直接忽略所有内容
         if os.path.commonpath([src_dir, dir_path]) != src_dir:
             return filenames
 
@@ -63,14 +63,7 @@ class Region:
         if self.backup_type == "chunk":
 
             source_dir = [os.path.join(self.cfg.server_path, self.world_name, folder) for folder in self.region_folder]
-            target_dir = [os.path.join(self.backup_path, self.slot, self.world_name, folder) for folder in
-                          self.region_folder]
-
-            for source in source_dir:
-                for folder in self.coords:
-                    if not os.path.exists(os.path.join(source, folder.replace("region", "mca"))):
-                        self.src.get_server().broadcast("区块备份范围内有区块对应的区域文件尚未在世界上生成,请调整备份范围")
-                        return
+            target_dir = [os.path.join(self.backup_path, self.slot, self.world_name, folder) for folder in self.region_folder]
 
             for source, target in zip(source_dir, target_dir):
                 os.makedirs(target, exist_ok=True)
@@ -78,11 +71,11 @@ class Region:
 
         else:
             server_path = self.cfg.server_path
-            diemsnion_info = self.cfg.dimension_info
+            dimension_info = self.cfg.dimension_info
             for dimension in self.dimension:
-                world_name = diemsnion_info[dimension]["world_name"]
+                world_name = dimension_info[dimension]["world_name"]
                 self.world_name.append(world_name)
-                region_folder = diemsnion_info[dimension]["region_folder"]
+                region_folder = dimension_info[dimension]["region_folder"]
                 source_dir = [os.path.join(server_path, world_name, folder) for folder in region_folder]
                 target_dir = [os.path.join(self.backup_path, self.slot, world_name, folder) for folder in region_folder]
                 extensions = (".mca",)
@@ -95,7 +88,7 @@ class Region:
                         ignore=ignore_specific_files(source, extensions),
                         dirs_exist_ok=True
                     )
-            self.dimension = [diemsnion_info[d]["dimension"] for d in self.dimension]
+            self.dimension = [dimension_info[d]["dimension"] for d in self.dimension]
 
         return True
 
@@ -105,8 +98,8 @@ class Region:
         swap_dict = Region.swap_dimension_key(self.cfg.dimension_info)
 
         if os.path.exists(overwrite_folder) and self.slot != self.cfg.overwrite_backup_folder:
-            shutil.rmtree(overwrite_folder)
-            os.makedirs(overwrite_folder)
+            shutil.rmtree(overwrite_folder, ignore_errors=True)
+            os.makedirs(overwrite_folder, exist_ok=True)
 
         backup_path = self.backup_path
         if self.slot != self.cfg.overwrite_backup_folder:
@@ -115,7 +108,11 @@ class Region:
                 region_folder = swap_dict[dimension]["region_folder"]
                 for region_dir in region_folder:
                     source_dir = os.path.join(backup_path, self.slot, world_name, region_dir)
+                    if not os.path.exists(source_dir):
+                        continue
                     target_dir = os.path.join(server_path, world_name, region_dir)
+                    if not os.path.exists(target_dir):
+                        os.makedirs(target_dir, exist_ok=True)
                     overwrite_dir = os.path.join(overwrite_folder, world_name, region_dir)
                     if self.backup_type == "chunk":
                         Region._process_chunk(source_dir, target_dir, overwrite_dir)
@@ -128,11 +125,17 @@ class Region:
                 region_folder = swap_dict[dimension]["region_folder"]
                 for region_dir in region_folder:
                     source_dir = os.path.join(backup_path, self.slot, world_name, region_dir)
+                    if not os.path.exists(source_dir):
+                        continue
                     target_dir = os.path.join(server_path, world_name, region_dir)
+                    if not os.path.exists(target_dir):
+                        os.makedirs(target_dir, exist_ok=True)
                     if self.backup_type == "chunk":
                         Region._process_chunk(source_dir, target_dir)
                     else:
                         Region._process_region(source_dir, target_dir)
+
+        return True
 
     @classmethod
     def _process_chunk(cls, source_dir, target_dir, overwrite_dir=None):
@@ -155,7 +158,6 @@ class Region:
             for file in all_[".region"]["files"]:
                 source_file = os.path.join(source_dir, file)
                 target_file = os.path.join(target_dir, file.replace(".region", ".mca"))
-
                 overwrite_file = os.path.join(overwrite_dir, file) if overwrite_dir else overwrite_dir
                 chunk.merge_region_file(source_file, target_file, overwrite=True, backup_path=overwrite_file)
 
@@ -197,19 +199,102 @@ class Region:
                 if not has_mca:
                     shutil.rmtree(overwrite_dir)
 
+    def organize_slot(self):
+        _cfg = self.cfg
+        backup_path = self.backup_path
+
+        self._ensure_backup_dirs(_cfg)
+
+        sorted_list = self._get_sorted_slots(backup_path)
+        max_slots = _cfg.static_slot if backup_path != _cfg.backup_path else _cfg.slot
+
+        if len(sorted_list) > max_slots:
+            msg_type = "static" if backup_path != _cfg.backup_path else "dynamic"
+            self.src.get_server().broadcast(tr(f"prompt_msg.backup.{msg_type}_more_than", max_slots, len(sorted_list)))
+            return
+
+        if len(sorted_list) == max_slots:
+            if backup_path == _cfg.backup_path:
+                shutil.rmtree(os.path.join(backup_path, f"slot{max_slots}"), ignore_errors=True)
+                sorted_list.pop()
+            else:
+                self.src.get_server().broadcast(tr("prompt_msg.backup..static_more_than", max_slots, len(sorted_list)))
+                return
+
+        temp_list = self._rename_slots(backup_path, sorted_list, index=2)
+        self._clear_temp(backup_path, temp_list)
+
+        os.makedirs(os.path.join(backup_path, "slot1"), exist_ok=True)
+        return True
+
     def save_info_file(self, src: InfoCommandSource = None, comment=None):
         info_path = os.path.join(self.backup_path, self.slot, "info.json")
+        if not src:
+            info_path = os.path.join(self.cfg.backup_path, self.cfg.overwrite_backup_folder, "info.json")
         info = cb_info.get_default().serialize()
         info["time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        info["command"] = src.get_info().content if src and src.get_info().is_player else tr("comment.console")
-        info["user"] = src.get_info().player if src and src.get_info().is_player else tr("comment.console")
+        info["command"] = src.get_info().content if src and src.get_info().is_player else tr("prompt_msg.comment.nocommand")
+        info["user"] = src.get_info().player if src and src.get_info().is_player else tr("prompt_msg.comment.console")
         info["backup_dimension"] = self.dimension
-        info["comment"] = comment if comment else tr("comment.empty_comment")
+        info["comment"] = comment if comment else tr("prompt_msg.comment.overwrite_comment")
         info["backup_type"] = self.backup_type
-        info["world_name"] = self.world_name
 
         with open(info_path, "w", encoding="utf-8") as fp:
             json.dump(info, fp, ensure_ascii=False, indent=4)
+
+    @classmethod
+    def _ensure_backup_dirs(cls, cfg):
+        """确保备份目录存在"""
+        if not os.path.exists(cfg.backup_path) or not os.path.exists(cfg.static_backup_path):
+            os.makedirs(cfg.backup_path, exist_ok=True)
+            os.makedirs(cfg.static_backup_path, exist_ok=True)
+
+    @classmethod
+    def _get_sorted_slots(cls, backup_path):
+        """获取排序后的slot列表"""
+        pattern = re.compile(r'^slot([1-9]\d*)$')
+        slot_list = [
+            i for i in os.listdir(backup_path)
+            if os.path.isdir(os.path.join(backup_path, i)) and pattern.match(i)
+        ]
+        return sorted(slot_list, key=lambda x: int(re.search(r'\d+', x).group()))
+
+    @classmethod
+    def _rename_slots(cls, backup_path, sorted_list, index):
+        """执行重命名操作并返回临时目录列表"""
+        temp_list = []
+        for i, v in zip(range(len(sorted_list) - 1, -1, -1), reversed(sorted_list)):
+            new_name = f"slot{i + index}"
+            if v == new_name:
+                continue
+
+            target_path = os.path.join(backup_path, new_name)
+            if i > 0 and os.path.exists(target_path):
+                temp_name = f"{new_name}_temp"
+                temp_list.append(temp_name)
+                os.rename(os.path.join(backup_path, v), os.path.join(backup_path, temp_name))
+            else:
+                os.rename(os.path.join(backup_path, v), os.path.join(backup_path, new_name))
+        return temp_list
+
+    @classmethod
+    def _clear_temp(cls, backup_path, temp_list):
+        """清理临时目录"""
+        for name in temp_list:
+            src = os.path.join(backup_path, name)
+            dest = os.path.join(backup_path, name.replace("_temp", ""))
+            os.rename(src, dest)
+
+    @classmethod
+    def get_slot_number(cls, backup_path, cfg):
+        cls._ensure_backup_dirs(cfg)
+
+        sorted_list = cls._get_sorted_slots(backup_path)
+
+        temp_list = cls._rename_slots(backup_path, sorted_list, index=1)
+        cls._clear_temp(backup_path, temp_list)
+
+        return len(cls._get_sorted_slots(backup_path))
 
     @classmethod
     def clear(cls):
@@ -221,70 +306,6 @@ class Region:
         if len(command.split()) > 2 and command.split()[2] == "-s":
             return cfg.static_backup_path
         return cfg.backup_path
-
-    @classmethod
-    def organize_slot(cls, src: InfoCommandSource = None, backup_path=None, cfg=cb_config, rename=False):
-        if not os.path.exists(cfg.backup_path) or not os.path.exists(cfg.static_backup_path):
-            os.makedirs(cfg.backup_path, exist_ok=True)
-            os.makedirs(cfg.static_backup_path, exist_ok=True)
-        pattern = re.compile(r'^slot([1-9]\d*)$')
-        slot_list = [
-            i for i in os.listdir(backup_path) if os.path.isdir(os.path.join(backup_path, i)) and pattern.match(i)
-        ]
-        sorted_list = sorted(slot_list, key=lambda x: int(re.search(r'\d+', x).group()))
-        temp = []
-
-        def clear_temp():
-            """清除临时文件夹的标记"""
-            for i in temp:
-                os.rename(os.path.join(backup_path, i), os.path.join(backup_path, i.strip("_temp")))
-
-        def rename_slots(index=1):
-            """重命名文件夹"""
-            for i, v in zip(range(len(sorted_list) - 1, -1, -1), reversed(sorted_list)):
-                new_name = f"slot{i + index}"
-                if v == new_name:
-                    continue
-
-                if i > 0 and new_name in sorted_list:
-                    temp.append(f"{new_name}_temp")
-                    os.rename(os.path.join(backup_path, v), os.path.join(backup_path, f"{new_name}_temp"))
-                else:
-                    os.rename(os.path.join(backup_path, v), os.path.join(backup_path, new_name))
-
-        if rename:
-            max_slots = cfg.static_slot if backup_path != cfg.backup_path else cfg.slot
-
-            if len(sorted_list) > max_slots:
-                msg = tr(
-                    "backup_error.static_more_than", max_slots, len(sorted_list)
-                ) if backup_path != cfg.backup_path else tr(
-                    "backup_error.dynamic_more_than", max_slots, len(sorted_list)
-                )
-
-                src.get_server().broadcast(msg)
-                return
-
-            if len(sorted_list) == max_slots:
-                if backup_path != cfg.backup_path:
-                    return tr("backup_error.static_more_than", max_slots, len(sorted_list))
-                shutil.rmtree(os.path.join(backup_path, f"slot{max_slots}"), ignore_errors=True)
-                sorted_list.pop()
-
-            if slot_list:
-                rename_slots(2)
-                clear_temp()
-
-            os.makedirs(os.path.join(backup_path, "slot1"), exist_ok=True)
-            return True
-
-        if slot_list:
-            rename_slots()
-            clear_temp()
-
-        return len(
-            [i for i in os.listdir(backup_path) if os.path.isdir(os.path.join(backup_path, i)) and pattern.match(i)]
-        )
 
     @classmethod
     def check_dimension(cls, dimension_info):
@@ -331,8 +352,8 @@ class ChunkSelector:
         # 公共验证逻辑
         def check_size(width, height):
             if width > self.max_chunk_size or height > self.max_chunk_size:
-                raise ValueError(f"区块范围不得超过{self.max_chunk_size}x{self.max_chunk_size}（当前尺寸：{width}x{height}）")
-
+                ServerInterface.get_instance().broadcast(tr("warn.hyper_max_chunk_size", self.max_chunk_size, width, height))
+                raise ValueError
         # 两点坐标模式
         if len(coords) == 2:
             self.mode = 'rectangle'
@@ -353,12 +374,14 @@ class ChunkSelector:
             # 计算实际区块尺寸（边长 = 2r + 1）
             actual_size = 2 * radius + 1
             if actual_size > self.max_chunk_size:
-                raise ValueError(f"给定区块半径{radius}导致区块边长{actual_size}超过最大值{self.max_chunk_size}")
-
+                ServerInterface.get_instance().broadcast(tr("warn.hyper_max_chunk_radius", radius, actual_size, self.max_chunk_size))
+                raise ValueError
             # 计算区块范围
             center_chunk = (math.floor(center_x / 16), math.floor(center_z / 16))
             self.chunk1 = (center_chunk[0] - radius, center_chunk[1] - radius)
             self.chunk2 = (center_chunk[0] + radius, center_chunk[1] + radius)
+
+        return True
 
     def _calculate_chunks(self):
         """计算所选区域内的所有区块坐标"""
@@ -382,8 +405,6 @@ class ChunkSelector:
             region_x = chunk_x // 32
             region_z = chunk_z // 32
             region_key = f"r.{region_x}.{region_z}.mca"
-            """local_x = chunk_x % 32
-            local_z = chunk_z % 32"""
             region_map[region_key].add((chunk_x, chunk_z))
 
         # 第二步：构建结果字典
