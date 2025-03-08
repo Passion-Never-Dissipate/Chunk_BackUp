@@ -149,9 +149,8 @@ class Chunk:
         # 生成备份文件（仅当有备份数据时）
         if backup_path and backup_chunks:
             cls._create_region_file(backup_path, backup_chunks)
-        elif backup_path and not backup_chunks:
-            ServerInterface.get_instance().logger.error(tr("warn.not_select_abel_backup_chunk"))
-
+        """elif backup_path and not backup_chunks:
+            ServerInterface.get_instance().logger.error(tr("warn.not_select_abel_backup_chunk"))"""
         return True
 
     @classmethod
@@ -418,5 +417,5 @@ class Chunk:
             return cls._merge_free_sectors(free_sectors)
 
         except Exception as e:
-            ServerInterface.get_instance().logger.error(tr("error.system_error.scan_mca_leisure_error", e))
+            # ServerInterface.get_instance().logger.error(tr("error.system_error.scan_mca_leisure_error", e))
             return []
