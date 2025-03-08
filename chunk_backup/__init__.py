@@ -388,7 +388,7 @@ def cb_list(source: InfoCommandSource, dic: dict):
             msg = msg + "  " + tr("prompt_msg.list.page", end, slot_)
             msg_list.append(msg)
         elif np:
-            msg = tr("prompt_msg.list.next_page", p, np, "-s" if not dynamic else "")
+            msg = tr("prompt_msg.list.next_page", p, np, "-s" if not dynamic else "", Prefix)
             msg = msg + "  " + tr("prompt_msg.list.page", end, slot_)
             msg_list.append(msg)
 
