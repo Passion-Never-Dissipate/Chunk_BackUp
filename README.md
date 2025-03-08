@@ -68,7 +68,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 * 两种回档指令(槽位回档，撤回回档)，具体见指令说明
 
 
-* 本插件具有静态备份功能(即短时间内不会被替换的备份)，静态备份采用独立文件夹存储在```./cb_static```，与之相对的动态备份存储在```./cb_multi```，具体见指令说明。
+* 本插件具有静态备份功能(即不会被替换的备份)，静态备份采用独立文件夹存储在```./cb_static```，与之相对的动态备份存储在```./cb_multi```，具体见指令说明。
 
 
 * 本插件支持多维度，原版环境下，0对应主世界，-1对应下界，1对应末地，在您的服务器有其他世界的情况下，您可以自定义一个整数来对应新的维度，这使得您的其他维度能够被插件识别，这个
@@ -138,7 +138,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
 ### 参数说明具体见下文的配置文件说明
 
-* 因此，该维度的区块文件所在路径应为：
+* 因此，该维度的区域文件所在路径应为：
   
   ```
   ./server_path参数/world_name参数/region_folder参数中的任一文件夹/r.x.z.mca
@@ -146,9 +146,9 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
   
   根据以上格式，您可以准确的的获取到某个维度的所有参数
   
-  对于使用多世界文件夹的服务端，如spigot，paper等，使用插件前应在```region_backup.json```配置文件里将```bukkit_mode```参数设置为true
+  对于使用多世界文件夹的服务端，如spigot，paper等，使用插件前应在```region_backup.json```配置文件里将```world_name```参数设置为对应维度的存档文件夹
   
-  多世界文件夹服务器端使用的dimension_info与单世界文件夹服务端的不同，见配置文件里的```dimension_info_for_bukkit```
+  多世界文件夹服务器端使用的dimension_info与单世界文件夹服务端的相同，都是使用dimension_info
   
   该参数编辑方法与上文的无本质区别，仅是不同维度对应的```world_name```不同
 
