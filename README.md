@@ -27,7 +27,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >
 ># _**不可以移动**_
 
->目前仅支持mca格式与zlip压缩的区域文件 
+>目前仅支持mca格式与zlib压缩的区域文件 
 
 ## 我们的优势！！！！
 * 自定义维度添加了支持，不再局限于原版的三个维度，以及对spigot，paper一类将world拆分为多个世界的服务端提供了支持，因此备份文件夹的结构被改变。
@@ -205,9 +205,9 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
 `!!cb dmake -s <维度:0主世界,-1地狱,1末地> <注释>` 同上,只是创建的备份为静态备份(即永久备份)
 
-`!!cb pmake <x1坐标> <z1坐标> <x2坐标> <z2坐标> <维度> <注释>` 给定两个坐标点，备份以两坐标点所在的区块坐标为顶点形成的矩形区块
+`!!cb pmake <x1坐标> <z1坐标> <x2坐标> <z2坐标> in <维度> <注释>` 给定两个坐标点，备份以两坐标点所在的区块坐标为顶点形成的矩形区块
 
-`!!cb pmake -s <x1坐标> <z1坐标> <x2坐标> <z2坐标> <维度> <注释>` 同上,只是创建的备份为静态备份(即永久备份)
+`!!cb pmake -s <x1坐标> <z1坐标> <x2坐标> <z2坐标> in <维度> <注释>` 同上,只是创建的备份为静态备份(即永久备份)
 
 `!!cb back <槽位>` 回档指定槽位所对应的区块
 
@@ -233,9 +233,11 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
 `!!cb reload` 重载插件
 
+`!!cb force_reload` 强行重载插件,用于插件功能无法正常使用
+
 ## 配置文件选项说明
 
-* 配置文件为`config/region_backup.json`。它会在第一次运行时自动生成(别搁那没运行傻呵呵的找)
+* 配置文件为`config/chunk_backup/chunk_backup_backup.json`。它会在第一次运行时自动生成(别搁那没运行傻呵呵的找)
 
 >当你修改了配置文件后，记得输入!!cb reload来重载配置文件
 
@@ -263,11 +265,11 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
   被覆盖的区块备份的备份位置，在配置文件均为默认值的情况下路径为 `./cb_multi/overwrite`
 
-* ### bukkit_mode
+* ### prefix
 
-  默认值: `false`
+  默认值: !!cb
 
-  服务端是否为多世界文件夹的服务端，如spigot，paper等插件服务端
+  插件指令的前缀，在指令未与其他插件起冲突的情况下，你最好不要更改它
 
 * ### dimension_info
 
@@ -302,40 +304,6 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >```
 >`单世界`文件夹服务端所对应的维度信息
 
-* ### dimension_info_for_bukkit
-
->默认值：
->
->```
->     {
->        "0": {"dimension": "minecraft:overworld",
->              "world_name": "world",
->              "region_folder": [
->                  "poi",
->                  "entities",
->                  "region"
->              ]
->              },
->        "-1": {"dimension": "minecraft:the_nether",
->               "world_name": "world_the_nether",
->               "region_folder": [
->                   "DIM-1/poi",
->                   "DIM-1/entities",
->                   "DIM-1/region"
->               ]
->               },
->        "1": {"dimension": "minecraft:the_end",
->              "world_name": "world_the_end",
->              "region_folder": [
->                  "DIM1/poi",
->                  "DIM1/entities",
->                  "DIM1/region"
->              ]
->              }
->     }
->```
->`多世界`文件夹服务端所对应的维度信息
-
 * ### minimum_permission_level
 
 >默认值：
@@ -351,12 +319,20 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >        "confirm": 1,
 >        "abort": 1,
 >        "reload": 2,
+>        "force_reload": 3,
 >        "list": 0
 >    }
 >``` 
 >一个字典，代表使用不同类型指令需要权限等级。数值含义见[此处](https://mcdreforged.readthedocs.io/zh_CN/latest/permission.html)
 >
 >把所有数值设置成 `0` 以让所有人均可操作
+
+* ### max_chunk_length
+   框选区块的最大区块边长
+
+   默认值：320
+  
+   默认的的最大范围为5120 x 5120大小的方块，说实话，完全够用了
 
 * ### slot
   普通备份(即动态备份)的槽位数量
