@@ -51,13 +51,11 @@ chunk_backup:
 
   warn:
     region_out_of_range: "区块备份范围内有区块对应的区域文件尚未在世界上生成,请调整备份范围!"
-    not_select_abel_backup_chunk: "警告：启用了备份功能但未找到可备份的区块"
+    not_select_able_backup_chunk: "警告：启用了备份功能但未找到可备份的区块"
     migration_incomplete: "警告: 偏移表条目 {} 数据不完整，已跳过"
     sector_out_of_bounds: "警告: 区块 ({0}, {1}) 扇区范围越界，已跳过"
     mca_size_abnormal: "警告: 区域文件 {} 大小异常"
     sector_range_invalid: "警告: 无效扇区范围 [{0}-{1})"
-    hyper_max_chunk_size: "§6§l[CB] §f区块范围不得超过默认的§a{0}§fx§a{0} §f(当前尺寸: §c{1}§fx§c{2}§f)"
-    hyper_max_chunk_radius: "§6§l[CB] §f给定区块半径§6{0}§f导致区块边长§c{1}§f超过默认设置的最大值§a{2}"
 
 
   error:
@@ -82,6 +80,7 @@ chunk_backup:
       read_source_region_fail: "读取源区域文件失败: {0}"
       parse_region_pos_fail: "无法备份: 区域坐标解析失败"
       read_region_file_fail: "读取区域文件 {0} 失败: {1}"
+      read_chunk_fail: "读取区块失败"
 
 
   prompt_msg:
@@ -96,22 +95,24 @@ chunk_backup:
 
     unidentified_dimension: "§6§l[CB] §f配置文件里不存在维度:§6{0}§f,请手动添加!"
 
-    invalid_info_dimension: "§6§l[CB] §f槽位§c{0}§f的维度信息不在配置文件里或配置文件里的维度重复!"
+    invalid_info_dimension: "§6§l[CB] §f槽位§c{0}§f的维度信息不在配置文件里"
 
-    empty_slot: "§6§l[CB] §f槽位§c{0}§f内不存在能回档的文件!"
+    no_backable: "§6§l[CB] §f槽位§c{0}§f内不存在能回档的文件!"
 
     backup:
       start: "§6§l[CB] §a备份§f中...请稍等"
       time: "§6§l[CB] §f日期: {0}; 注释: {1}"
       done: "§6§l[CB] §a备份§f完成，耗时§6{}§f秒"
-      not_number_key: "§6§l[CB] §f维度数字键§a{0}§f在配置文件不存在!"
-      not_player: "§6§l[CB] §c该指令只能由玩家输入!"
-      dim_error: "§6§l[CB] §c维度输入错误!"
-      dim_repeat: "§6§l[CB] §c维度输入重复!"
+      no_number_key: "§6§l[CB] §f维度数字键§a{0}§f在配置文件不存在!"
+      no_player: "§6§l[CB] §c该指令只能由玩家输入!"
+      input_dim_error: "§6§l[CB] §c维度输入错误!"
+      input_dim_repeat: "§6§l[CB] §c维度输入重复!"
       timeout: "§6§l[CB] §a备份超时,已取消本次备份!你可以输入§c/save-on§f或§c{} force_reload§f后重新尝试"
-      dynamic_more_than: "§6§l[CB] §b动态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
-      static_more_than: "§6§l[CB] §b静态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
+      dynamic_more: "§6§l[CB] §b动态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
+      static_more: "§6§l[CB] §b静态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
       unknown_error: "备份出错,错误信息: §c{0}"
+      max_chunk_size: "§6§l[CB] §f区块范围不得超过默认的§a{0}§fx§a{0} §f(当前尺寸: §c{1}§fx§c{2}§f)"
+      max_chunk_radius: "§6§l[CB] §f给定区块半径§6{0}§f导致区块边长§c{1}§f超过默认设置的最大值§a{2}"
 
     back:
       start: "§6§l[CB] §f准备将存档恢复至槽位§6{0}§f，日期 {1}; 注释: {2}"
@@ -120,10 +121,10 @@ chunk_backup:
       down: "§6§l[CB] §c服务器将于{0}秒后关闭回档!"
       count: "§6§l[CB] §f服务器还有§c{0}秒关闭§f，输入#sc={1} abort<>st=终止回档#§a{1} abort§f来停止回档到槽位§6{2}"
       run: "[Chunk BackUp] §a正在进行回档操作"
-      dim_error: "§6§l[CB] §c维度输入错误!"
-      lack_info: "§6§l[CB] §f该槽位无§cinfo.json§f文件或槽位不存在,无法回档!"
-      lack_region: "§6§l[CB] §c该槽位内无区域文件或区块文件,无法回档!"
-      timeout: "§6§l[CB] §c回档超时,已取消本次回档"
+      no_dim_error: "§6§l[CB] §c该维度在配置文件内不存在!"
+      lack_info_file: "§6§l[CB] §f该槽位无§cinfo.json§f文件或槽位不存在,无法回档!"
+      lack_region_file: "§6§l[CB] §c该槽位内无区域文件或区块文件,无法回档!"
+      timeout: "§6§l[CB] §c长时间未操作,已取消本次回档"
       unknown_error: "回档出错,错误信息: §c{0}"
       server_error: "[Chunk BackUp] 服务端关闭异常,回档终止"
 
