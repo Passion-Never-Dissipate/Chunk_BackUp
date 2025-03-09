@@ -111,7 +111,7 @@ chunk_backup:
       dynamic_more: "§6§l[CB] §b动态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
       static_more: "§6§l[CB] §b静态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
       unknown_error: "备份出错,错误信息: §c{0}"
-      max_chunk_size: "§6§l[CB] §f区块范围不得超过默认的§a{0}§fx§a{0} §f(当前尺寸: §c{1}§fx§c{2}§f)"
+      max_chunk_length: "§6§l[CB] §f区块范围不得超过默认的§a{0}§fx§a{0} §f(当前尺寸: §c{1}§fx§c{2}§f)"
       max_chunk_radius: "§6§l[CB] §f给定区块半径§6{0}§f导致区块边长§c{1}§f超过默认设置的最大值§a{2}"
 
     back:
