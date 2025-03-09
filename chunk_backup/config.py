@@ -9,7 +9,7 @@ class cb_info(Serializable):
     command: str = ""
     comment: str = ""
     backup_type: str = ""
-    version_created: str = "1.0.0"
+    version_created: str = "1.1.0"
 
 
 class cb_config(Serializable):
@@ -60,4 +60,4 @@ class cb_config(Serializable):
     slot: int = 10
     static_slot: int = 50
     max_chunk_length: int = 320
-    plugin_version: str = "1.0.0"
+    plugin_version: str = "1.1.0"

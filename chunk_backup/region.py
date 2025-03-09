@@ -12,8 +12,9 @@ from collections import defaultdict
 
 from chunk_backup.config import cb_config, cb_info
 from chunk_backup.chunk import Chunk as chunk
+from chunk_backup.errors import MaxChunkLength, MaxChunkRadius, StaticMore, DynamicMore
 from chunk_backup.tools import tr, FileStatsAnalyzer as analyzer
-from mcdreforged.api.types import InfoCommandSource, ServerInterface
+from mcdreforged.api.types import InfoCommandSource
 
 
 def ignore_specific_files(src_dir, extensions):
@@ -149,9 +150,14 @@ class Region:
             for file in all_[".mca"]["files"]:
                 source_file = os.path.join(source_dir, file)
                 target_file = os.path.join(target_dir, file)
-                if os.path.exists(target_file) and overwrite_dir:
+
+                if overwrite_dir:
                     overwrite_file = os.path.join(overwrite_dir, file)
-                    shutil.copy2(target_file, overwrite_file)
+                    if os.path.exists(target_file):
+                        shutil.copy2(target_file, overwrite_file)
+                    else:
+                        chunk.init_region_file(overwrite_file)
+
                 shutil.copy2(source_file, target_file)
 
         if ".region" in all_:
@@ -197,7 +203,7 @@ class Region:
 
                 # 当没有.mca文件时删除
                 if not has_mca:
-                    shutil.rmtree(overwrite_dir)
+                    shutil.rmtree(overwrite_dir, ignore_errors=True)
 
     def organize_slot(self):
         _cfg = self.cfg
@@ -209,17 +215,14 @@ class Region:
         max_slots = _cfg.static_slot if backup_path != _cfg.backup_path else _cfg.slot
 
         if len(sorted_list) > max_slots:
-            msg_type = "static" if backup_path != _cfg.backup_path else "dynamic"
-            self.src.get_server().broadcast(tr(f"prompt_msg.backup.{msg_type}_more_than", max_slots, len(sorted_list)))
-            return
+            raise StaticMore(max_slots, len(sorted_list)) if backup_path != _cfg.backup_path else DynamicMore(max_slots, len(sorted_list))
 
         if len(sorted_list) == max_slots:
             if backup_path == _cfg.backup_path:
                 shutil.rmtree(os.path.join(backup_path, f"slot{max_slots}"), ignore_errors=True)
                 sorted_list.pop()
             else:
-                self.src.get_server().broadcast(tr("prompt_msg.backup..static_more_than", max_slots, len(sorted_list)))
-                return
+                raise StaticMore(max_slots, len(sorted_list))
 
         temp_list = self._rename_slots(backup_path, sorted_list, index=2)
         self._clear_temp(backup_path, temp_list)
@@ -352,8 +355,7 @@ class ChunkSelector:
         # 公共验证逻辑
         def check_size(width, height):
             if width > self.max_chunk_size or height > self.max_chunk_size:
-                ServerInterface.get_instance().broadcast(tr("warn.hyper_max_chunk_size", self.max_chunk_size, width, height))
-                raise ValueError
+                raise MaxChunkLength(self.max_chunk_size, width, height)
         # 两点坐标模式
         if len(coords) == 2:
             self.mode = 'rectangle'
@@ -370,12 +372,10 @@ class ChunkSelector:
         else:
             self.mode = 'square'
             (center_x, center_z), radius = coords[0]
-            print(center_x, center_z, radius)
             # 计算实际区块尺寸（边长 = 2r + 1）
             actual_size = 2 * radius + 1
             if actual_size > self.max_chunk_size:
-                ServerInterface.get_instance().broadcast(tr("warn.hyper_max_chunk_radius", radius, actual_size, self.max_chunk_size))
-                raise ValueError
+                raise MaxChunkRadius(radius, actual_size, self.max_chunk_size)
             # 计算区块范围
             center_chunk = (math.floor(center_x / 16), math.floor(center_z / 16))
             self.chunk1 = (center_chunk[0] - radius, center_chunk[1] - radius)

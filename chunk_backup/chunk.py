@@ -10,21 +10,32 @@ class Chunk:
     @classmethod
     def export_grouped_regions(cls, input_region_dir, output_dir, region_groups):
         """按区域分组导出"""
-
-        # 2. 处理每个区域
         for region_file, chunks in region_groups.items():
-
             input_path = os.path.join(input_region_dir, region_file)
-            if not os.path.exists(input_path):
-                continue
-            if isinstance(chunks, str):
-                shutil.copy2(os.path.join(input_region_dir, chunks), os.path.join(output_dir, chunks))
-                # 直接复制region_file即可
-                continue
             output_path = os.path.join(output_dir, region_file.replace("mca", "region"))
-            chunks_data = {}
 
-            # 3. 读取所有目标区块
+            # 处理输入文件不存在的情况
+            if not os.path.exists(input_path):
+                # 全区域模式特殊处理
+                if region_file == chunks:
+                    # 直接创建空区域文件（8KB全0）
+                    cls.init_region_file(os.path.join(output_dir, region_file))
+
+                else:
+                    # 创建包含指定空区块的文件
+                    chunks_data = {
+                        (chunk_x % 32, chunk_z % 32): None
+                        for chunk_x, chunk_z in chunks
+                    }
+                    cls._create_region_file(output_path, chunks_data)
+
+                continue
+
+            if region_file == chunks:
+                shutil.copy2(input_path, os.path.join(output_dir, region_file))
+                continue
+
+            chunks_data = {}
             for chunk_x, chunk_z in chunks:
                 local_x = chunk_x % 32
                 local_z = chunk_z % 32
@@ -32,8 +43,10 @@ class Chunk:
                 if data:
                     chunks_data[(local_x, local_z)] = data
 
-            # 4. 生成新区域文件
-            cls._create_region_file(output_path, chunks_data)
+            if not chunks_data:
+                cls.init_region_file(os.path.join(output_dir, region_file))
+            else:
+                cls._create_region_file(output_path, chunks_data)
 
         return True
 
@@ -61,17 +74,15 @@ class Chunk:
             region_x, region_z = cls._parse_region_filename(target_region_path)
         except Exception as e:
             ServerInterface.get_instance().logger.error(tr("error.region_error.mca_pos_analyze_error", e))
-            if backup_path:
-                """print("已禁用备份功能")"""
-                backup_path = None
+            return
 
-        # 如果需要备份则重新初始化字典
+            # 如果需要备份则重新初始化字典
         if backup_path:
             backup_chunks = {}
 
         # 初始化目标文件
         if not os.path.exists(target_region_path):
-            cls._init_region_file(target_region_path)
+            cls.init_region_file(target_region_path)
 
         # 扫描目标文件空闲扇区
         free_sectors = cls._scan_free_sectors(target_region_path)
@@ -91,40 +102,20 @@ class Chunk:
                 existing_sectors = existing_offset & 0xFF
                 existing_start = existing_offset >> 8
 
-                # 如果目标位置已有数据且允许覆盖，则先备份原数据
-                if existing_sectors > 0 and overwrite and backup_path:
-                    # 验证区域坐标已正确解析
-                    if region_x is None or region_z is None:
-                        ServerInterface.get_instance().logger.error("error.region_error.parse_region_pos_fail")
-                        continue
+                # ===== 新增备份逻辑 =====
+                if backup_path:
+                    full_x = region_x * 32 + local_x
+                    full_z = region_z * 32 + local_z
 
-                    # 根据目标区域文件名计算完整区块坐标
-                    full_chunk_x = region_x * 32 + local_x
-                    full_chunk_z = region_z * 32 + local_z
+                    # 读取目标区块数据（包含空状态）
+                    target_chunk = cls._read_chunk_with_nullable(target_region_path, full_x, full_z)
 
-                    # 读取备份数据
-                    backup_chunk = cls._read_chunk_data(target_region_path, full_chunk_x, full_chunk_z)
-                    if backup_chunk:
-                        backup_chunks[(local_x, local_z)] = backup_chunk
-
-                    # 扇区回收逻辑
-                    if existing_start >= 2:
-                        free_sectors.append((existing_start, existing_sectors))
-                        free_sectors.sort()
-                        i = 0
-                        while i < len(free_sectors) - 1:
-                            curr_start, curr_size = free_sectors[i]
-                            next_start, next_size = free_sectors[i + 1]
-                            if curr_start + curr_size == next_start:
-                                free_sectors[i] = (curr_start, curr_size + next_size)
-                                del free_sectors[i + 1]
-                            else:
-                                i += 1
-
-                # 如果目标位置已有数据且不覆盖，则跳过
-                if existing_sectors > 0 and not overwrite:
-                    """print(f"跳过已有区块 ({local_x}, {local_z})")"""
-                    continue
+                    # 记录备份的条件：
+                    # 1. 源区块有数据 且 2. 需要覆盖 或 目标区块存在数据/空状态
+                    if chunk['sector_count'] > 0 and (overwrite or existing_sectors > 0):
+                        # 特殊标记空状态区块
+                        backup_data = target_chunk if target_chunk else {'status': 'empty'}
+                        backup_chunks[(local_x, local_z)] = backup_data
 
                 # 分配写入位置
                 write_position = cls._allocate_space(free_sectors, chunk['sector_count'], target_f)
@@ -143,15 +134,75 @@ class Chunk:
                     target_f.seek(4096 + 4 * offset_index)
                     target_f.write(struct.pack('>I', chunk['timestamp']))
                 except Exception as e:
-                    ServerInterface.get_instance().logger.error("error.system_error.write_chunk_file_error", local_x,
-                                                                local_z, e)
+                    ServerInterface.get_instance().logger.error("error.system_error.write_chunk_file_error", local_x, local_z, e)
 
-        # 生成备份文件（仅当有备份数据时）
         if backup_path and backup_chunks:
-            cls._create_region_file(backup_path, backup_chunks)
+            # 转换备份数据结构
+            formatted_backup = {}
+            for (lx, lz), data in backup_chunks.items():
+                if data.get('status') == 'empty':
+                    # 标记为需要显式清空
+                    formatted_backup[(lx, lz)] = None
+                elif data is not None:
+                    # 正常区块数据
+                    formatted_backup[(lx, lz)] = data
+
+            # 创建备份文件
+            if formatted_backup:
+                cls._create_region_file(backup_path, formatted_backup)
+            else:
+                # 创建空文件表示无变更
+                cls.init_region_file(backup_path)
         """elif backup_path and not backup_chunks:
             ServerInterface.get_instance().logger.error(tr("warn.not_select_abel_backup_chunk"))"""
         return True
+
+    @classmethod
+    def _create_region_file(cls, output_path, chunks_data):
+        """通用创建方法（兼容空文件生成）"""
+        # 如果没有需要特殊处理的区块，直接创建空文件
+
+        # 原有区块处理逻辑保持不变
+        header = bytearray(8192)
+        data_sectors = bytearray()
+        current_sector = 2
+
+        for (local_x, local_z), data in chunks_data.items():
+            if data is None:
+                offset_index = 4 * (local_x + local_z * 32)
+                header[offset_index:offset_index + 4] = b'\x00\x00\x00\x00'
+                timestamp_index = 4096 + 4 * (local_x + local_z * 32)
+                header[timestamp_index:timestamp_index + 4] = b'\x00\x00\x00\x00'
+
+        # 再处理正常数据区块
+        for local_z in range(32):
+            for local_x in range(32):
+                chunk_key = (local_x, local_z)
+                if chunk_key not in chunks_data or chunks_data[chunk_key] is None:
+                    continue
+
+                chunk = chunks_data[chunk_key]
+                raw_data = (
+                        struct.pack('>I', len(chunk['data']) + 1) +
+                        bytes([chunk['compression_type']]) +
+                        chunk['data']
+                )
+                sectors_needed = (len(raw_data) + 4095) // 4096
+                padded_data = raw_data.ljust(sectors_needed * 4096, b'\x00')
+
+                offset_index = 4 * (local_x + local_z * 32)
+                offset_entry = (current_sector << 8) | sectors_needed
+                header[offset_index:offset_index + 4] = struct.pack('>I', offset_entry)
+
+                timestamp_index = 4096 + 4 * (local_x + local_z * 32)
+                header[timestamp_index:timestamp_index + 4] = struct.pack('>I', chunk['timestamp'])
+
+                data_sectors += padded_data
+                current_sector += sectors_needed
+
+        with open(output_path, 'wb') as f:
+            f.write(header)
+            f.write(data_sectors)
 
     @classmethod
     def _parse_region_filename(cls, region_filename):
@@ -213,7 +264,7 @@ class Chunk:
             return
 
     @classmethod
-    def _init_region_file(cls, file_path):
+    def init_region_file(cls, file_path):
         """初始化一个空区域文件（填充8KB头部）"""
         with open(file_path, 'wb') as f:
             f.write(b'\x00' * 8192)
@@ -252,40 +303,6 @@ class Chunk:
         aligned_pos = ((current_pos + 4095) // 4096) * 4096
         file_handle.truncate(aligned_pos + required_sectors * 4096)
         return aligned_pos
-
-    @classmethod
-    def _create_region_file(cls, output_path, chunks_data):
-        header = bytearray(8192)  # 偏移表 + 时间戳表
-        data_sectors = bytearray()
-        current_sector = 2  # 数据从第2个扇区开始
-
-        for local_z in range(32):  # 先遍历 z
-            for local_x in range(32):  # 再遍历 x
-                chunk_key = (local_x, local_z)
-                if chunk_key not in chunks_data:
-                    continue
-
-                chunk = chunks_data[chunk_key]
-                raw_data = (
-                        struct.pack('>I', len(chunk['data']) + 1) +
-                        bytes([chunk['compression_type']]) +
-                        chunk['data']
-                )
-                sectors_needed = (len(raw_data) + 4095) // 4096
-                padded_data = raw_data.ljust(sectors_needed * 4096, b'\x00')
-
-                offset_index = 4 * (local_x + local_z * 32)
-                offset_entry = (current_sector << 8) | sectors_needed
-                header[offset_index:offset_index + 4] = struct.pack('>I', offset_entry)
-
-                timestamp_index = 4096 + 4 * (local_x + local_z * 32)
-                header[timestamp_index:timestamp_index + 4] = struct.pack('>I', chunk['timestamp'])
-
-                data_sectors += padded_data
-                current_sector += sectors_needed
-        with open(output_path, 'wb') as f:
-            f.write(header)
-            f.write(data_sectors)
 
     @classmethod
     def _read_region_metadata(cls, region_path):
@@ -419,3 +436,35 @@ class Chunk:
         except Exception as e:
             # ServerInterface.get_instance().logger.error(tr("error.system_error.scan_mca_leisure_error", e))
             return []
+
+    @classmethod
+    def _read_chunk_with_nullable(cls, region_path, chunk_x, chunk_z):
+        """
+        增强版区块读取方法，能识别空状态
+        返回值：
+        - None: 区块不存在
+        - dict: 正常区块数据
+        """
+        local_x = chunk_x % 32
+        local_z = chunk_z % 32
+
+        try:
+            with open(region_path, 'rb') as f:
+
+                f.seek(4 * (local_x + local_z * 32))
+                offset_data = f.read(4)
+                if len(offset_data) != 4:
+                    return None
+
+                offset = struct.unpack('>I', offset_data)[0]
+                if offset == 0:
+                    # 明确标记空状态
+                    return {'status': 'empty'}
+
+                # 正常读取流程
+                return cls._read_chunk_data(region_path, chunk_x, chunk_z)
+        except FileNotFoundError:
+            return {'status': 'empty'}  # 文件不存在视为全空
+        except Exception as e:
+            ServerInterface.get_instance().logger.error(tr("error.read_chunk_fail", chunk_x, chunk_z, e))
+            # return None

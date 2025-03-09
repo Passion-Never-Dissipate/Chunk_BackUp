@@ -15,6 +15,7 @@ from chunk_backup.tools import tr, safe_load_json, FileStatsAnalyzer as analyzer
 from chunk_backup.region import Region as region
 from chunk_backup.region import ChunkSelector as selector
 from chunk_backup.json_message import Message
+from chunk_backup.errors import *
 
 Prefix = '!!cb'
 config_name = "chunk_backup.json"
@@ -22,9 +23,57 @@ cfg = cb_config
 server_path = cb_config.server_path
 dimension_info = cb_config.dimension_info
 region_obj: Optional[region] = None
-server_data = None
-time_out = 5
+time_out = 10
 countdown = 10
+
+
+class GetServerData:
+    def __init__(self, player: Optional[str] = None):
+        self.player = player
+        self.coord = None
+        self.dimension = None
+        self.save_off = None
+        self.save_all = None
+        self.index = None
+
+    def get_player_info(self):
+        global region_obj
+        self.index = 1
+        ServerInterface.get_instance().execute(f"data get entity {self.player} Pos")
+        ServerInterface.get_instance().execute(f"data get entity {self.player} Dimension")
+
+        t1 = time.time()
+        while not self.coord or not self.dimension:
+            if time.time() - t1 > time_out:
+                raise GetPlayerDataTimeout
+            time.sleep(0.01)
+        self.index = 2
+        self.coord = [float(p.strip('d')) for p in self.coord.strip("[]").split(',')]
+        self.dimension = self.dimension.strip('"')
+        self.get_saved_info()
+
+    def get_saved_info(self):
+        global region_obj
+        self.index = 3
+        ServerInterface.get_instance().execute("save-off")
+        t1 = time.time()
+        while not self.save_off:
+            if time.time() - t1 > time_out:
+                raise SavaoffTimeout
+            time.sleep(0.01)
+        self.index = 4
+        ServerInterface.get_instance().execute("save-all flush")
+        t1 = time.time()
+        while not self.save_all:
+            if time.time() - t1 > time_out:
+                raise SaveallTimeout
+            time.sleep(0.01)
+        self.index = None
+        region_obj = region()
+        region_obj.cfg = cfg
+
+
+server_data: Optional[GetServerData] = None
 
 
 def print_help_msg(src: InfoCommandSource):
@@ -44,21 +93,43 @@ def check_backup_state(func):
             source.reply(tr("prompt_msg.backup.repeat_backup"))
             return
 
+        if not region.check_dimension(dimension_info):
+            source.reply(tr("prompt_msg.repeat_dimension"))
+            return
+
         try:
             return func(source, dic)
 
-        except Exception:
+        except Timeout as error:
+            source.reply(tr("prompt_msg.backup.timeout", Prefix))
+            if not type(error).__name__ == "GetPlayerDataTimeout":
+                source.get_server().execute("save-on")
+
+        except BackupError as error:
+            server_data = None
             region_obj = None
-            region.clear()
+            if not type(error).__name__ == "BackupTimeout":
+                source.get_server().execute("save-on")
+            source.reply(error.args[0])
+
+        except BackError as error:
+            region_obj = None
+            source.reply(error.args[0])
+
+        except Exception:
+            server_data = None
+            region_obj = None
             source.reply(tr("error.unknown_error", traceback.format_exc()))
-            source.get_server().execute("save-on")
 
         finally:
-            server_data = None
             if region.backup_state:
-                region_obj = None
+                if server_data:
+                    server_data = None
+                if region_obj:
+                    region_obj = None
+                    source.get_server().execute("save-on")
                 region.backup_state = None
-                source.get_server().execute("save-on")
+                return
 
             if region.back_state:
                 region.back_state = None
@@ -72,28 +143,18 @@ def cb_make(src: InfoCommandSource, dic: dict):
     global server_data
     region.backup_state = 1
     if not src.get_info().is_player:
-        src.reply(tr("prompt_msg.backup.not_player"))
-        return
+        raise NoPlayer
     swap_dict = region.swap_dimension_key(dimension_info)
-    if not swap_dict:
-        src.reply(tr("prompt_msg.repeat_dimension"))
-        return
     dic["comment"] = dic.get("comment", tr("prompt_msg.comment.empty_comment"))
     radius = dic["radius"]
     t = time.time()
     src.get_server().broadcast(tr("prompt_msg.backup.start"))
     server_data = GetServerData(src.get_info().player)
     server_data.get_player_info()
-    if not region_obj:
-        src.reply(tr("prompt_msg.backup.timeout", Prefix))
-        return
     if not (server_data.dimension in swap_dict):
-        src.reply(tr("prompt_msg.unidentified_dimension", server_data.dimension))
-        return
-    try:
-        selected = selector((((server_data.coord[0], server_data.coord[-1]), radius),), max_chunk_size=cfg.max_chunk_length).group_by_region()
-    except ValueError:
-        return
+        raise UnidentifiedDimension(server_data.dimension)
+    selected = selector((((server_data.coord[0], server_data.coord[-1]), radius),),
+                        max_chunk_size=cfg.max_chunk_length).group_by_region()
     region_obj.src = src
     region_obj.cfg = cfg
     region_obj.coords = selected
@@ -101,10 +162,8 @@ def cb_make(src: InfoCommandSource, dic: dict):
     region_obj.world_name = swap_dict[server_data.dimension]["world_name"]
     region_obj.region_folder = swap_dict[server_data.dimension]["region_folder"]
     region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
-    if not region_obj.organize_slot():
-        return
-    if not region_obj.copy():
-        return
+    region_obj.organize_slot()
+    region_obj.copy()
     region_obj.save_info_file(src, dic["comment"])
     t1 = time.time()
     src.get_server().broadcast(
@@ -123,31 +182,20 @@ def cb_pos_make(src: InfoCommandSource, dic: dict):
     coord = ((dic["x1"], dic["z1"]), (dic["x2"], dic["z2"]))
     dic["comment"] = dic.get("comment", tr("prompt_msg.comment.empty_comment"))
     if str(dic["dimension_int"]) not in dimension_info:
-        src.reply(tr("prompt_msg.backup.dim_error"))
-        return
-    if not region.check_dimension(dimension_info):
-        src.reply(tr("prompt_msg.repeat_dimension"))
-        return
+        raise InputDimError
+    selected = selector(coord, max_chunk_size=cfg.max_chunk_length).group_by_region()
     t = time.time()
     src.get_server().broadcast(tr("prompt_msg.backup.start"))
     server_data = GetServerData()
     server_data.get_saved_info()
-    if not region_obj:
-        src.reply(tr("prompt_msg.backup.timeout", Prefix))
-        return
     region_obj.src = src
     region_obj.cfg = cfg
     region_obj.dimension.append(dimension_info[str(dic["dimension_int"])]["dimension"])  # 此处暂时这样写，后续必须改进
     region_obj.world_name = dimension_info[str(dic["dimension_int"])]["world_name"]
     region_obj.region_folder = dimension_info[str(dic["dimension_int"])]["region_folder"]
     region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
-    try:
-        selected = selector(coord, max_chunk_size=cfg.max_chunk_length).group_by_region()
-    except ValueError:
-        return
     region_obj.coords = selected
-    if not region_obj.organize_slot():
-        return
+    region_obj.organize_slot()
     region_obj.copy()
     region_obj.save_info_file(src, dic["comment"])
     t1 = time.time()
@@ -167,33 +215,23 @@ def cb_dim_make(src: InfoCommandSource, dic: dict):
     dic["comment"] = dic.get("comment", tr("prompt_msg.comment.empty_comment"))
     pattern = r'^[-+]?\d+(?:[，,][-+]?\d+)*$'
     if not re.fullmatch(pattern, dic["dimension"]):
-        src.reply(tr("prompt_msg.invalid_input"))
-        return
+        raise InvalidInput
     res = re.findall(r'[-+]?\d+', dic["dimension"])
     dimension = [s for s in res]
     if len(dimension) != len(set(dimension)):
-        src.reply(tr("prompt_msg.backup.dim_repeat"))
-        return
+        raise InputDimRepeat
     for dim in dimension:
         if dim not in dimension_info:
-            src.reply(tr("prompt_msg.backup.dim_error"))
-            return
-    if not region.check_dimension(dimension_info):
-        src.reply(tr("prompt_msg.repeat_dimension"))
-        return
+            raise InputDimError
     t = time.time()
     src.get_server().broadcast(tr("prompt_msg.backup.start"))
     server_data = GetServerData()
     server_data.get_saved_info()
-    if not region_obj:
-        src.reply(tr("prompt_msg.backup.timeout", Prefix))
-        return
     region_obj.backup_type = "region"
     region_obj.cfg = cfg
     region_obj.dimension = dimension  # 这里的dimension是一个数字维度键列表
     region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
-    if not region_obj.organize_slot():
-        return
+    region_obj.organize_slot()
     region_obj.copy()
     region_obj.save_info_file(src, dic["comment"])
     t1 = time.time()
@@ -210,10 +248,12 @@ def cb_dim_make(src: InfoCommandSource, dic: dict):
 def cb_back(src: InfoCommandSource, dic: dict):
     global region_obj
     region.back_state = 1
+
     region_obj = region()
     region_obj.cfg = cfg
     region_obj.src = src
     region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
+
     if not dic:
         if src.get_info().content.split()[1] == "restore":
             region_obj.slot = cfg.overwrite_backup_folder
@@ -223,20 +263,15 @@ def cb_back(src: InfoCommandSource, dic: dict):
             dic["slot"] = 1
     else:
         region_obj.slot = f"slot{dic['slot']}"
+
     info_path = os.path.join(region_obj.backup_path, region_obj.slot, "info.json")
     if not os.path.exists(info_path):
-        region_obj = None
-        src.reply(tr("prompt_msg.back.lack_info"))
-        return
+        raise LackInfoFile
 
     info = safe_load_json(info_path)
-
     swap_dict = region.swap_dimension_key(dimension_info)
-
-    if not swap_dict or any(i not in swap_dict for i in info["backup_dimension"]):
-        region_obj = None
-        src.reply(tr("prompt_msg.invalid_info_dimension", dic["slot"]))
-        return
+    if any(i not in swap_dict for i in info["backup_dimension"]):
+        raise InvalidInfoDimension(dic["slot"])
 
     region_obj.dimension = info["backup_dimension"]
     region_obj.backup_type = info["backup_type"]
@@ -245,47 +280,45 @@ def cb_back(src: InfoCommandSource, dic: dict):
     obj_slot = analyzer(os.path.join(region_obj.backup_path, region_obj.slot))
     obj_slot.scan_by_extension(ext, include_subdirs=True)
     if not obj_slot.get_ext_report():
-        region_obj = None
-        src.reply(tr("prompt_msg.empty_slot", dic["slot"]))
-        return
+        raise LackRegionFile
 
     time_ = info["time"]
     comment = info["comment"]
-
     src.reply(
         Message.get_json_str(
-            "\n".join([tr("prompt_msg.back.start", region_obj.slot.replace("slot", "", 1), time_, comment),
-                       tr("prompt_msg.back.click", Prefix)]))
+            "\n".join(
+                [tr("prompt_msg.back.start", region_obj.slot.replace("slot", "", 1), time_, comment),
+                 tr("prompt_msg.back.click", Prefix)]
+            )
+        )
     )
+
     t1 = time.time()
     region.back_state = 2
     while region.back_state == 2:
         if time.time() - t1 > countdown:
-            region_obj = None
-            src.reply(tr("prompt_msg.back.timeout"))
-            return
+            raise BackTimeout
         time.sleep(0.01)
 
     if region.back_state == -1:
-        region_obj = None
-        src.reply(tr("prompt_msg.back.abort"))
-        return
+        raise BackAbort
+
     src.get_server().broadcast(tr("prompt_msg.back.down", countdown))
 
     for t in range(1, countdown):
         time.sleep(1)
         if region.back_state == -1:
-            region_obj = None
-            src.reply(tr("prompt_msg.back.abort"))
-            return
+            raise BackAbort
         src.get_server().broadcast(
             Message.get_json_str(
                 tr("prompt_msg.back.count", f"{countdown - t}", Prefix, region_obj.slot.replace("slot", "", 1))
             )
         )
+
     src.get_server().stop()
 
 
+# 这是一个事件触发器，请不要把这个函数放到其他地方去
 def on_server_stop(server: PluginServerInterface, server_return_code: int):
     global region_obj
     try:
@@ -425,67 +458,22 @@ def cb_force_reload(source: CommandSource):
     source.get_server().reload_plugin("chunk_backup")
 
 
+# 消息监听器
 def on_info(server: PluginServerInterface, info: Info):
-    if isinstance(server_data, GetServerData) and not region_obj:
-        if isinstance(server_data.player, str) and info.content.startswith(
-                f"{server_data.player} has the following entity data: ") and not server_data.save_all and not server_data.save_off and info.is_from_server:
+    if server_data and not region_obj:
+        if isinstance(server_data.player, str) and info.content.startswith(f"{server_data.player} has the following entity data: ") and server_data.index == 1 and info.is_from_server:
             if not server_data.coord:
                 server_data.coord = info.content.split(sep="entity data: ")[-1]
             else:
                 server_data.dimension = info.content.split(sep="entity data: ")[-1]
             return
 
-        if info.content.startswith("Automatic saving is now disabled") and info.is_from_server:
+        if info.content.startswith("Automatic saving is now disabled") and server_data.index == 3 and info.is_from_server:
             server_data.save_off = 1
             return
 
-        if info.content.startswith("Saved the game") and info.is_from_server:
+        if info.content.startswith("Saved the game") and server_data.index == 4 and info.is_from_server:
             server_data.save_all = 1
-
-
-class GetServerData:
-    def __init__(self, player: Optional[str] = None):
-        self.player = player
-        self.coord = None
-        self.dimension = None
-        self.save_off = None
-        self.save_all = None
-
-    def get_player_info(self):
-        global region_obj
-        ServerInterface.get_instance().execute(f"data get entity {self.player} Pos")
-        time.sleep(0.01)
-        ServerInterface.get_instance().execute(f"data get entity {self.player} Dimension")
-
-        t1 = time.time()
-        while not self.coord or not self.dimension:
-            if time.time() - t1 > time_out:
-                region_obj = None
-                return
-            time.sleep(0.01)
-
-        self.coord = [float(p.strip('d')) for p in self.coord.strip("[]").split(',')]
-        self.dimension = self.dimension.strip('"')
-        self.get_saved_info()
-
-    def get_saved_info(self):
-        global region_obj
-        ServerInterface.get_instance().execute("save-off")
-        t1 = time.time()
-        while not self.save_off:
-            if time.time() - t1 > time_out:
-                region_obj = None
-                return
-            time.sleep(0.01)
-        ServerInterface.get_instance().execute("save-all flush")
-        t1 = time.time()
-        while not self.save_all:
-            if time.time() - t1 > time_out:
-                region_obj = None
-                return
-            time.sleep(0.01)
-        region_obj = region()
-        region_obj.cfg = cfg
 
 
 def on_load(server: PluginServerInterface, old):
