@@ -1,4 +1,3 @@
-
 chunk_backup:
 
   introduction:
@@ -10,7 +9,7 @@ chunk_backup:
         一个以区块为单位的§a备份§f/§c回档§f插件
         §3作者: FRUITS_CANDY, Bexerlmao
         §d【常用指令】
-        #sc={0} help<>st=点击运行指令#§7{0} help §f查看所有指令用法
+        #sc={0} help<>st=点击运行指令#§7{0} help §f查看所有指令用法(§b高级用法都在里面§f)
         #sc={0} make 0<>st=点击运行指令#§7{0} make §6<区块半径> §e[<注释>] §f以当前区块为中心,备份边长为2倍半径+1的区块/§e<注释>§f为可选注释
         #sc={0} dmake<>st=点击运行指令#§7{0} dmake §6<维度:0主世界,-1地狱,1末地> §e[<注释>] §f备份给定维度的所有区域,维度间用§6,§f做区分/§a例:0 或 0,-1
         #sc={0} pmake<>st=点击运行指令#§7{0} pmake §6<x1坐标> <z1坐标> <x2坐标> <z2坐标> §7in §6<维度> §e[<注释>] §f给定两个坐标点,备份以两坐标点对应的区块坐标为顶点形成的区块范围
@@ -20,10 +19,11 @@ chunk_backup:
         #sc={0} confirm<>st=点击运行指令#§7{0} confirm §f再次确认是否回档
         #sc={0} abort<>st=点击运行指令#§7{0} abort §f在任何时候键入此指令可中断回档
         #sc={0} list<>st=点击运行指令#§7{0} list §e[<页数>] §f显示备份槽位信息
+        #sc={0} show 1<>st=点击运行指令#§7{0} show §e[<槽位>] §f显示给定槽位的所有信息
+        #sc={0} set<>st=点击运行指令#§7{0} set slot §e[<数量>] §f修改动态备份槽位最大数量
         #sc={0} reload<>st=点击运行指令#§7{0} reload §f重载插件
         #sc={0} force_reload<>st=点击运行指令#§7{0} force_reload §f强行重载插件,用于插件功能无法正常使用
         #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=点我进入插件仓库了解更多用法#§d想了解更详细的用法?§b点我了解更多§6<——
-
 
     full_help_message: |
         §d【全部指令】
@@ -45,9 +45,14 @@ chunk_backup:
         #sc={0} abort<>st=点击运行指令#§7{0} abort §e在任何时候键入此指令可中断回档
         #sc={0} list<>st=点击运行指令#§7{0} list §e[<页数>] §f显示备份槽位信息
         #sc={0} list -s<>st=点击运行指令#§7{0} list §b-s §6<参数同上> §f同上,只是查看的备份为§c静态备份§f(即§a永久备份§f)
+        #sc={0} show 1<>st=点击运行指令#§7{0} show §e[<槽位>] §f显示给定槽位的所有信息
+        #sc={0} show -s 1<>st=点击运行指令#§7{0} show §b-s §e[<槽位>] §f同上,只是显示的信息为§c静态备份§f(即§a永久备份§f)
+        #sc={0} show overwrite<>st=点击运行指令#§7{0} show §eoverwrite §f显示覆盖备份槽位的所有信息
+        #sc={0} set slot<>st=点击运行指令#§7{0} set slot §e[<数量>] §f修改动态备份槽位最大数量
+        #sc={0} set slot -s<>st=点击运行指令#§7{0} set slot §b-s §e[<数量>] §f同上,只是修改的数量为§c静态备份§f(即§a永久备份§f)
+        #sc={0} set max_chunk_length<>st=点击运行指令#§7{0} set max_chunk_length §e[<区块边长>] §f修改备份的最大区块边长
         #sc={0} reload<>st=点击运行指令#§7{0} reload §e重载插件
         #sc={0} force_reload<>st=点击运行指令#§7{0} force_reload §f强行重载插件,用于插件功能无法正常使用
-
 
   warn:
     region_out_of_range: "区块备份范围内有区块对应的区域文件尚未在世界上生成,请调整备份范围!"
@@ -57,11 +62,8 @@ chunk_backup:
     mca_size_abnormal: "警告: 区域文件 {} 大小异常"
     sector_range_invalid: "警告: 无效扇区范围 [{0}-{1})"
 
-
   error:
-
     server_error: "[CB] 服务端关闭异常,回档终止!"
-
     unknown_error: "操作出错,错误信息: §c{0}"
 
     system_error:
@@ -70,7 +72,6 @@ chunk_backup:
       scan_mca_leisure_error : "扫描空闲扇区失败: {0}"
       write_chunk_file_error: "写入区块 ({0}, {1}) 失败: {2}"
       invalid_sector_parameter: "无效扇区参数: start={0}, count={1}"
-
 
     region_error:
       mca_analyze_error: "无法解析区域文件名: {0}"
@@ -82,21 +83,13 @@ chunk_backup:
       read_region_file_fail: "读取区域文件 {0} 失败: {1}"
       read_chunk_fail: "读取区块失败"
 
-
   prompt_msg:
-
     invalid_input: "§6§l[CB] §f无效的输入,请检查格式是否正确!"
-
     lack_permission: "你没有运行该指令的权限"
-
     repeat_backup: "§6§l[CB] §f存在正在进行的备份或回档操作!"
-
     repeat_dimension: "§6§l[CB] §f检测到配置文件里的维度存在重复,请检查配置文件"
-
     unidentified_dimension: "§6§l[CB] §f配置文件里不存在维度:§6{0}§f,请手动添加!"
-
     invalid_info_dimension: "§6§l[CB] §f槽位§c{0}§f的维度信息不在配置文件里"
-
     no_backable: "§6§l[CB] §f槽位§c{0}§f内不存在能回档的文件!"
 
     backup:
@@ -110,7 +103,6 @@ chunk_backup:
       timeout: "§6§l[CB] §a备份超时,已取消本次备份!你可以输入§c/save-on§f或§c{} force_reload§f后重新尝试"
       dynamic_more: "§6§l[CB] §b动态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
       static_more: "§6§l[CB] §b静态备份§f槽位§c已满§f,最大数量为§e{0}§f个,已存在§e{1}§f个!"
-      unknown_error: "备份出错,错误信息: §c{0}"
       max_chunk_length: "§6§l[CB] §f区块范围不得超过默认的§a{0}§fx§a{0} §f(当前尺寸: §c{1}§fx§c{2}§f)"
       max_chunk_radius: "§6§l[CB] §f给定区块半径§6{0}§f导致区块边长§c{1}§f超过默认设置的最大值§a{2}"
 
@@ -125,7 +117,6 @@ chunk_backup:
       lack_info_file: "§6§l[CB] §f该槽位无§cinfo.json§f文件或槽位不存在,无法回档!"
       lack_region_file: "§6§l[CB] §c该槽位内无区域文件或区块文件,无法回档!"
       timeout: "§6§l[CB] §c长时间未操作,已取消本次回档"
-      unknown_error: "回档出错,错误信息: §c{0}"
       server_error: "[Chunk BackUp] 服务端关闭异常,回档终止"
 
     list:
@@ -133,13 +124,26 @@ chunk_backup:
       out_page: "§6§l[CB] §c超出页数范围!"
       dynamic: §d【动态备份】
       static: §d【静态备份】
-      slot: '#st=备份维度: §a{5} §f备份用户: §b{6} §f备份指令: §6{7}#[槽位§6{0}§f] #sc={8} back {4} {0}<>st=回档至槽位§6{0}#§a[▷] #sc={8} del {4} {0}<>st=删除槽位§6{0}#§c[x] ##§a{1} §f{2} 注释: {3}'
+      slot: '#st=备份维度: §a{5} §f备份用户: §b{6} §f备份指令: §6{7}#[槽位§6{0}§f] #sc={8} show{4} {0}<>st=查看槽位§6{0}§f所有信息#§6[C] #sc={8} back{4} {0}<>st=回档至槽位§6{0}#§a[▷] #sc={8} del{4} {0}<>st=删除槽位§6{0}#§c[x] ##§a{1} §f{2} 注释: {3}'
       empty_size: "[槽位§6{}§f] 空或者缺少§6info.json§f文件"
-      last_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} list {2} {1}#§b[上一页]"
-      next_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} list {2} {1}#§d[下一页]"
+      last_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} list{2} {1}#§b[上一页]"
+      next_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} list{2} {1}#§d[下一页]"
       page: "##§7[§a{0}§7/§e{1}§7]"
       total_size: "动态备份占用: §6{0} §r静态备份占用: §b{1} §r总占用: §a{2}"
-      unknown_error: "显示备份列表出错,错误信息: §c{0}"
+
+    show:
+      empty: "§6§l[CB] §f槽位§6{0}§f为空或者缺少§6info.json§f文件"
+      title: §d【槽位信息】
+      backup_dimension: "- 备份维度: §6{}"
+      user: "- 备份用户: §3{}"
+      user_pos: "- 用户坐标: §6{}"
+      no_pos: "- 备份用户坐标: 无"
+      command: "- 备份指令: §a{}"
+      time: "- 备份日期: §b{}"
+      comment: "- 注释: {}"
+      backup_type: "- 备份类型: §9{}"
+      size: "- 占用空间: §d{}"
+      version_created: "- 创建版本: §e{}"
 
     comment:
       empty_comment: §7空
@@ -150,14 +154,15 @@ chunk_backup:
     del:
       done: "§6§l[CB] §f槽位§6{0}§a删除§f成功"
       lack_slot: "§6§l[CB] §f槽位§6{0}§c不存在"
-      unknown_error: "删除备份时出错,错误信息:§c{0}"
+
+    set:
+      done: "§6§l[CB] §f配置文件更改§a成功"
 
     reload:
       done: "§aChunk BackUp§f已重载"
       reload_error: "重载Chunk BackUp失败,错误信息:§c{0}"
 
     abort: 没有什么好中断的
-
     confirm: 没有什么好确认的
 
 
