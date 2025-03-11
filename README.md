@@ -261,6 +261,18 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
 `!!cb list -s <page>` 同上,只是查看的备份为静态备份(即永久备份)
 
+`!!cb show <slot>` 显示给定槽位的所有信息
+
+`!!cb show -s <slot>` 同上,只是显示的信息为静态备份(即永久备份)
+
+`!!cb show overwrite` 显示覆盖备份槽位的所有信息
+
+`!!cb set slot <数量>` 修改动态备份槽位最大数量
+
+`!!cb set slot -s <数量>` 同上,只是修改的数量为静态备份(即永久备份)
+
+`!!cb set max_chunk_length -s <区块边长>` 修改备份的最大区块边长
+
 `!!cb reload` 重载插件
 
 `!!cb force_reload` 强行重载插件,用于插件功能无法正常使用
