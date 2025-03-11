@@ -6,6 +6,7 @@ from mcdreforged.api.types import ServerInterface
 from collections import defaultdict
 from os.path import splitext, join, relpath, abspath, isdir, isfile
 from typing import Dict, List, Optional, Tuple, Union, Set
+from chunk_backup.config import cb_config as config
 
 
 def tr(key, *args):
@@ -18,6 +19,32 @@ def safe_load_json(target_dir: str):
         content = buffer.decode('utf-8') if buffer[:3] != b'\xef\xbb\xbf' else buffer[3:].decode('utf-8')
         info = json.loads(content)
     return info
+
+
+def save_json_file(target_dir: str, dic: dict):
+    with open(target_dir, "w", encoding="utf-8") as fp:
+        json.dump(dic, fp, indent=4, ensure_ascii=False)
+
+
+def update_config(old_config, template=config.get_default().serialize()):
+    for key in template:
+        if key not in old_config:
+            old_config[key] = template[key]
+        else:
+            old_val = old_config[key]
+            template_val = template[key]
+            if isinstance(old_val, dict) and isinstance(template_val, dict):
+                update_config(old_val, template_val)
+            elif isinstance(old_val, list) and isinstance(template_val, list):
+                for i in range(len(template_val)):
+                    if i < len(old_val):
+                        old_elem = old_val[i]
+                        template_elem = template_val[i]
+                        if isinstance(old_elem, dict) and isinstance(template_elem, dict):
+                            update_config(old_elem, template_elem)
+                    else:
+                        old_val.append(template_val[i])
+    return old_config
 
 
 class FileStatsAnalyzer:

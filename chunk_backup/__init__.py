@@ -11,13 +11,14 @@ from mcdreforged.api.types import Info, InfoCommandSource, CommandSource, Server
 from mcdreforged.api.command import SimpleCommandBuilder, Requirements, Number, Integer, GreedyText, Text
 from mcdreforged.api.decorator import new_thread
 from chunk_backup.config import cb_info, cb_config
-from chunk_backup.tools import tr, safe_load_json, FileStatsAnalyzer as analyzer
+from chunk_backup.tools import tr, update_config, save_json_file, safe_load_json, FileStatsAnalyzer as analyzer
 from chunk_backup.region import Region as region
 from chunk_backup.region import ChunkSelector as selector
 from chunk_backup.json_message import Message
 from chunk_backup.errors import *
 
 Prefix = '!!cb'
+config_path = os.path.join(".", "config", "chunk_backup", "chunk_backup.json")
 config_name = "chunk_backup.json"
 cfg = cb_config
 server_path = cb_config.server_path
@@ -25,6 +26,24 @@ dimension_info = cb_config.dimension_info
 region_obj: Optional[region] = None
 time_out = 10
 countdown = 10
+
+
+def wait_until(condition_checker, timeout, initial_interval=0.001, max_interval=0.1):
+    """动态轮询
+    :param condition_checker: 条件判断的lambda表达式
+    :param timeout: 超时时间(秒)
+    :param initial_interval: 初始轮询间隔(默认1ms)
+    :param max_interval: 最大轮询间隔(默认100ms)
+    """
+    deadline = time.time() + timeout
+    current_interval = initial_interval
+
+    while not condition_checker():
+        if time.time() > deadline:
+            return False
+        time.sleep(current_interval)
+        current_interval = min(current_interval * 2, max_interval)
+    return True
 
 
 class GetServerData:
@@ -38,16 +57,20 @@ class GetServerData:
 
     def get_player_info(self):
         global region_obj
+
         self.index = 1
         ServerInterface.get_instance().execute(f"data get entity {self.player} Pos")
         ServerInterface.get_instance().execute(f"data get entity {self.player} Dimension")
+        success = wait_until(
+            lambda: self.coord and self.dimension,
+            time_out,
+            initial_interval=0.001  # 初始更密集检测
+        )
+        if not success:
+            self.index = None
+            raise GetPlayerDataTimeout
 
-        t1 = time.time()
-        while not self.coord or not self.dimension:
-            if time.time() - t1 > time_out:
-                raise GetPlayerDataTimeout
-            time.sleep(0.01)
-        self.index = 2
+        self.index = None
         self.coord = [float(p.strip('d')) for p in self.coord.strip("[]").split(',')]
         self.dimension = self.dimension.strip('"')
         self.get_saved_info()
@@ -56,21 +79,18 @@ class GetServerData:
         global region_obj
         self.index = 3
         ServerInterface.get_instance().execute("save-off")
-        t1 = time.time()
-        while not self.save_off:
-            if time.time() - t1 > time_out:
-                raise SavaoffTimeout
-            time.sleep(0.01)
+        if not wait_until(lambda: self.save_off, time_out, initial_interval=0.001):
+            self.index = None
+            raise SavaoffTimeout
+
         self.index = 4
         ServerInterface.get_instance().execute("save-all flush")
-        t1 = time.time()
-        while not self.save_all:
-            if time.time() - t1 > time_out:
-                raise SaveallTimeout
-            time.sleep(0.01)
+        if not wait_until(lambda: self.save_all, time_out, initial_interval=0.01, max_interval=0.1):
+            self.index = None
+            raise SaveallTimeout
+
         self.index = None
         region_obj = region()
-        region_obj.cfg = cfg
 
 
 server_data: Optional[GetServerData] = None
@@ -90,7 +110,7 @@ def check_backup_state(func):
     def wrapper(source: InfoCommandSource, dic: dict):
         global server_data, region_obj
         if any((region.backup_state is not None, region.back_state is not None, isinstance(region_obj, region))):
-            source.reply(tr("prompt_msg.backup.repeat_backup"))
+            source.reply(tr("prompt_msg.repeat_backup"))
             return
 
         if not region.check_dimension(dimension_info):
@@ -153,6 +173,7 @@ def cb_make(src: InfoCommandSource, dic: dict):
     server_data.get_player_info()
     if not (server_data.dimension in swap_dict):
         raise UnidentifiedDimension(server_data.dimension)
+    region_obj.user_pos = " ".join([str(i) for i in server_data.coord])
     selected = selector((((server_data.coord[0], server_data.coord[-1]), radius),),
                         max_chunk_size=cfg.max_chunk_length).group_by_region()
     region_obj.src = src
@@ -318,7 +339,6 @@ def cb_back(src: InfoCommandSource, dic: dict):
     src.get_server().stop()
 
 
-# 这是一个事件触发器，请不要把这个函数放到其他地方去
 def on_server_stop(server: PluginServerInterface, server_return_code: int):
     global region_obj
     try:
@@ -333,7 +353,7 @@ def on_server_stop(server: PluginServerInterface, server_return_code: int):
             server.start()
 
     except Exception:
-        server.logger.error(tr("prompt_msg.back.unknown_error", traceback.format_exc()))
+        server.logger.error(tr("error.unknown_error", traceback.format_exc()))
         server.start()
 
     finally:
@@ -369,7 +389,63 @@ def cb_del(source: InfoCommandSource, dic: dict):
         source.reply(tr("prompt_msg.del.lack_slot", dic['slot']))
 
     except Exception:
-        source.reply(tr("prompt_msg.del.unknown_error", traceback.format_exc()))
+        source.reply(tr("error.unknown_error", traceback.format_exc()))
+
+
+def cb_set_config(source: InfoCommandSource, dic: dict):
+    try:
+        new_dict = safe_load_json(config_path)
+
+        content = source.get_info().content
+        right = content.split(maxsplit=2)[-1].split()
+        command = right[0]
+        if command == "slot":
+            if len(right) == 3:
+                new_dict["static_slot"] = dic["slot"]
+            else:
+                new_dict["slot"] = dic["slot"]
+
+        elif command == "max_chunk_length":
+            new_dict["max_chunk_length"] = dic["length"]
+
+        save_json_file(config_path, new_dict)
+        source.reply(tr("prompt_msg.set.done"))
+
+    except Exception:
+        source.reply(tr("error.unknown_error", traceback.format_exc()))
+
+
+def cb_show(src: InfoCommandSource, dic: dict):
+    args = src.get_info().content.split()
+    is_overwrite = (args[-1] == "overwrite")
+    backup_path = cfg.backup_path if is_overwrite else region.get_backup_path(cfg, src.get_info().content)
+    name = "overwrite" if is_overwrite else f"slot{dic.get('page', 1)}"
+    info_path = os.path.join(backup_path, name, "info.json")
+    if not os.path.exists(info_path):
+        src.reply(tr("prompt_msg.show.empty", 1 if name != "overwrite" else name if not dic else dic["page"]))
+        return
+    try:
+        size = analyzer(os.path.join(backup_path, name))
+        size.scan_all_files(include_subdirs=True)
+        total = size.get_full_report()["all_files"]["total_size_human"]
+        info = safe_load_json(info_path)
+        msg_components = [
+            tr("prompt_msg.show.title"),
+            tr("prompt_msg.show.time", info["time"]),
+            tr("prompt_msg.show.backup_type", info["backup_type"]),
+            tr("prompt_msg.show.backup_dimension", ",".join(info["backup_dimension"])),
+            tr("prompt_msg.show.user", info["user"]),
+            tr("prompt_msg.show.user_pos", info["user_pos"]) if "user_pos" in info else tr("prompt_msg.show.no_pos"),
+            tr("prompt_msg.show.comment", info["comment"]),
+            tr("prompt_msg.show.command", info["command"]),
+            tr("prompt_msg.show.size", total),
+            tr("prompt_msg.show.version_created", info["version_created"])
+        ]
+        msg = [comp for comp in msg_components]
+        src.reply(Message.get_json_str("\n".join(msg)))
+
+    except Exception:
+        src.reply(tr("error.unknown_error", traceback.format_exc()))
 
 
 def cb_list(source: InfoCommandSource, dic: dict):
@@ -406,7 +482,7 @@ def cb_list(source: InfoCommandSource, dic: dict):
                 size_slot.scan_all_files(include_subdirs=True)
                 msg = tr(
                     "prompt_msg.list.slot", i, size_slot.get_full_report()["all_files"]["total_size_human"], _time,
-                    comment, "-s"
+                    comment, " -s"
                     if not dynamic else "", dimension, user, command, Prefix
                 )
                 msg_list.append(msg)
@@ -415,32 +491,34 @@ def cb_list(source: InfoCommandSource, dic: dict):
                 msg_list.append(msg)
 
         if lp:
-            msg = tr("prompt_msg.list.last_page", p, lp, "-s" if not dynamic else "", Prefix)
+            msg = tr("prompt_msg.list.last_page", p, lp, " -s" if not dynamic else "", Prefix)
             if np:
-                msg = msg + "  " + tr("prompt_msg.list.next_page", p, np, "-s" if not dynamic else "", Prefix)
+                msg = msg + "  " + tr("prompt_msg.list.next_page", p, np, " -s" if not dynamic else "", Prefix)
             msg = msg + "  " + tr("prompt_msg.list.page", end, slot_)
             msg_list.append(msg)
         elif np:
-            msg = tr("prompt_msg.list.next_page", p, np, "-s" if not dynamic else "", Prefix)
+            msg = tr("prompt_msg.list.next_page", p, np, " -s" if not dynamic else "", Prefix)
             msg = msg + "  " + tr("prompt_msg.list.page", end, slot_)
             msg_list.append(msg)
 
         source.reply(Message.get_json_str("\n".join(msg_list)))
-        dynamic_ = analyzer(cfg.backup_path)
-        dynamic_.scan_all_files(include_subdirs=True)
-        static_ = analyzer(cfg.static_backup_path)
-        static_.scan_all_files(include_subdirs=True)
-        msg = tr(
-            "prompt_msg.list.total_size", dynamic_.get_full_report()["all_files"]["total_size_human"],
-            static_.get_full_report()["all_files"]["total_size_human"],
-            analyzer.format_size(
-                dynamic_.get_full_report()["all_files"]["total_size_bytes"] + static_.get_full_report()["all_files"][
-                    "total_size_bytes"])
-        )
-        source.reply(msg)
+        if p == 1:
+            dynamic_ = analyzer(cfg.backup_path)
+            dynamic_.scan_all_files(include_subdirs=True)
+            static_ = analyzer(cfg.static_backup_path)
+            static_.scan_all_files(include_subdirs=True)
+            msg = tr(
+                "prompt_msg.list.total_size", dynamic_.get_full_report()["all_files"]["total_size_human"],
+                static_.get_full_report()["all_files"]["total_size_human"],
+                analyzer.format_size(
+                    dynamic_.get_full_report()["all_files"]["total_size_bytes"] +
+                    static_.get_full_report()["all_files"][
+                        "total_size_bytes"])
+            )
+            source.reply(msg)
 
     except Exception:
-        source.reply(tr("prompt_msg.list.unknown_error", traceback.format_exc()))
+        source.reply(tr("error.unknown_error", traceback.format_exc()))
 
 
 def cb_reload(source: CommandSource):
@@ -461,14 +539,16 @@ def cb_force_reload(source: CommandSource):
 # 消息监听器
 def on_info(server: PluginServerInterface, info: Info):
     if server_data and not region_obj:
-        if isinstance(server_data.player, str) and info.content.startswith(f"{server_data.player} has the following entity data: ") and server_data.index == 1 and info.is_from_server:
+        if isinstance(server_data.player, str) and info.content.startswith(
+                f"{server_data.player} has the following entity data: ") and server_data.index == 1 and info.is_from_server:
             if not server_data.coord:
                 server_data.coord = info.content.split(sep="entity data: ")[-1]
             else:
                 server_data.dimension = info.content.split(sep="entity data: ")[-1]
             return
 
-        if info.content.startswith("Automatic saving is now disabled") and server_data.index == 3 and info.is_from_server:
+        if info.content.startswith(
+                "Automatic saving is now disabled") and server_data.index == 3 and info.is_from_server:
             server_data.save_off = 1
             return
 
@@ -485,6 +565,12 @@ def on_load(server: PluginServerInterface, old):
 
     if not os.path.exists(os.path.join(server.get_data_folder(), config_name)):
         server.save_config_simple(cb_config.get_default(), config_name)
+    else:
+        old_dict = server.load_config_simple(config_name, target_class=cb_config).serialize()
+        new_dict = update_config(old_dict)
+        if new_dict["plugin_version"] != cfg.plugin_version:
+            new_dict["plugin_version"] = cfg.plugin_version
+        save_json_file(config_path, new_dict)
 
     cfg = server.load_config_simple(config_name, target_class=cb_config)
 
@@ -519,11 +605,19 @@ def on_load(server: PluginServerInterface, old):
     builder.command(f"{Prefix} confirm", cb_confirm)
     builder.command(f"{Prefix} del <slot>", cb_del)
     builder.command(f"{Prefix} del -s <slot>", cb_del)
+    builder.command(f"{Prefix} set slot <slot>", cb_set_config)
+    builder.command(f"{Prefix} set slot -s <slot>", cb_set_config)
+    builder.command(f"{Prefix} set max_chunk_length <length>", cb_set_config)
     builder.command(f"{Prefix} abort", cb_abort)
     builder.command(f"{Prefix} list", cb_list)
     builder.command(f"{Prefix} list <page>", cb_list)
     builder.command(f"{Prefix} list -s", cb_list)
     builder.command(f"{Prefix} list -s <page>", cb_list)
+    builder.command(f"{Prefix} show", cb_show)
+    builder.command(f"{Prefix} show <page>", cb_show)
+    builder.command(f"{Prefix} show -s", cb_show)
+    builder.command(f"{Prefix} show -s <page>", cb_show)
+    builder.command(f"{Prefix} show overwrite", cb_show)
     builder.command(f"{Prefix} reload", cb_reload)
     builder.command(f"{Prefix} force_reload", cb_force_reload)
 
@@ -533,6 +627,7 @@ def on_load(server: PluginServerInterface, old):
     builder.arg("z2", Number)
     builder.arg("dimension", Text)
     builder.arg("dimension_int", Integer)
+    builder.arg("length", lambda length: Integer(length).at_min(1))
     builder.arg("radius", lambda radius: Integer(radius).at_min(0))
     builder.arg("comment", GreedyText)
     builder.arg("slot", lambda s: Integer(s).at_min(1))

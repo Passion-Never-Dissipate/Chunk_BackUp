@@ -241,7 +241,8 @@ class Region:
         info["backup_dimension"] = self.dimension
         info["comment"] = comment if comment else tr("prompt_msg.comment.overwrite_comment")
         info["backup_type"] = self.backup_type
-
+        if getattr(self, "user_pos", None):
+            info["user_pos"] = getattr(self, "user_pos")
         with open(info_path, "w", encoding="utf-8") as fp:
             json.dump(info, fp, ensure_ascii=False, indent=4)
 
@@ -314,7 +315,7 @@ class Region:
     def check_dimension(cls, dimension_info):
         dim = set()
         for value in dimension_info.values():
-            dimension = value["dimension"]  # 假设 "dimension" 键必然存在
+            dimension = value["dimension"]
             if dimension in dim:
                 return None  # 发现重复，立即返回
             dim.add(dimension)

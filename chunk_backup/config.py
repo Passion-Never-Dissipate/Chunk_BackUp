@@ -4,12 +4,12 @@ from typing import Dict
 
 class cb_info(Serializable):
     time: str = ""
-    backup_dimension: list = []
-    user: str = ""
-    command: str = ""
-    comment: str = ""
     backup_type: str = ""
-    version_created: str = "1.1.0"
+    user: str = ""
+    backup_dimension: list = []
+    comment: str = ""
+    command: str = ""
+    version_created: str = "1.2.0"
 
 
 class cb_config(Serializable):
@@ -55,9 +55,11 @@ class cb_config(Serializable):
         "abort": 1,
         "reload": 2,
         "force_reload": 3,
-        "list": 0
+        "list": 0,
+        "show": 1,
+        "set": 2
     }
     slot: int = 10
     static_slot: int = 50
     max_chunk_length: int = 320
-    plugin_version: str = "1.1.0"
+    plugin_version: str = "1.2.0"
