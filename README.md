@@ -271,7 +271,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
 `!!cb set slot -s <数量>` 同上,只是修改的数量为静态备份(即永久备份)
 
-`!!cb set max_chunk_length -s <区块边长>` 修改备份的最大区块边长
+`!!cb set max_chunk_length <区块边长>` 修改备份的最大区块边长
 
 `!!cb reload` 重载插件
 
