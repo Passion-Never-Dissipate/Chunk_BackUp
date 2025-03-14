@@ -344,12 +344,59 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >              }
 >     }
 >```
->`单世界`文件夹服务端所对应的维度信息
 
+`单世界`文件夹服务端所对应的维度信息
+
+* ### data_getter
+
+  默认值： 
+>```
+>     {
+>        "get_pos": "data get entity {name} Pos",
+>        "get_dimension": "data get entity {name} Dimension",
+>        "save_worlds": "save-all flush",
+>        "auto_save_off": "save-off",
+>        "auto_save_on": "save-on",
+>        "get_pos_regex": "^{name} has the following entity data: \\[(?P<x>-?[\\d.]+)d, (?P<y>-?[\\d.]+)d, (?P<z>-?[\\d.]+)d\\]$",
+>        "get_dimension_regex": "^{name} has the following entity data: \"(?P<dimension>[^\"]+)\"$",
+>        "save_off_regex": "Automatic saving is now disabled",
+>        "saved_world_regex": "Saved the game"
+>    }
+>```
+
+一个存储了各种指令及其返回值的字典, 大部分情况下，你不需要修改它
+
+* #### get_pos
+  获取玩家坐标的指令，{name}为玩家名，是一个f-string内的变量(不知道请自行查阅)   
+
+* #### get_dimension
+  获取玩家所在维度的指令
+
+* #### save_worlds
+  保存世界的指令
+
+* #### auto_save_off
+  关闭自动保存的指令
+
+* #### auto_save_on
+  打开自动保存的指令
+
+* #### get_pos_regex
+  获取玩家坐标指令的返回值，是一个包含了f-string与正则表达式的字符串，{name}为玩家名，<x> <y> <z>代表了坐标
+
+* #### get_dimension_regex
+  获取玩家所在维度指令的返回值，<dimension>代表玩家所在的维度名
+
+* #### save_off_regex
+  关闭自动保存指令的返回值，是一个普通字符串，插件会进行全串匹配，不要在这里使用正则表达式
+
+* #### saved_world_regex
+  保存世界指令的返回值，是一个普通字符串，插件会进行全串匹配，不要在这里使用正则表达式
+  
 * ### minimum_permission_level
 
->默认值：
->
+默认值：
+
 >``` 
 >   {
 >        "make": 1,
@@ -364,10 +411,11 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >        "force_reload": 3,
 >        "list": 0
 >    }
->``` 
->一个字典，代表使用不同类型指令需要权限等级。数值含义见[此处](https://mcdreforged.readthedocs.io/zh_CN/latest/permission.html)
->
->把所有数值设置成 `0` 以让所有人均可操作
+>```
+
+一个字典，代表使用不同类型指令需要权限等级。数值含义见[此处](https://mcdreforged.readthedocs.io/zh_CN/latest/permission.html)
+
+把所有数值设置成 `0` 以让所有人均可操作
 
 * ### max_chunk_length
    框选区块的最大区块边长
