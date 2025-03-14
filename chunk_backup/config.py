@@ -9,7 +9,7 @@ class cb_info(Serializable):
     backup_dimension: list = []
     comment: str = ""
     command: str = ""
-    version_created: str = "1.2.0"
+    version_created: str = "1.2.3"
 
 
 class cb_config(Serializable):
@@ -44,6 +44,17 @@ class cb_config(Serializable):
               ]
               }
     }
+    data_getter: Dict[str, str] = {
+        "get_pos": "data get entity {name} Pos",
+        "get_dimension": "data get entity {name} Dimension",
+        "save_worlds": "save-all flush",
+        "auto_save_off": "save-off",
+        "auto_save_on": "save-on",
+        "get_pos_regex": r'^{name} has the following entity data: \[(?P<x>-?[\d.]+)d, (?P<y>-?[\d.]+)d, (?P<z>-?[\d.]+)d\]$',
+        "get_dimension_regex": r'^{name} has the following entity data: "(?P<dimension>[^"]+)"$',
+        "save_off_regex": "Automatic saving is now disabled",
+        "saved_world_regex": "Saved the game"
+    }
     minimum_permission_level: Dict[str, int] = {
         "make": 1,
         "pmake": 1,
@@ -62,4 +73,4 @@ class cb_config(Serializable):
     slot: int = 10
     static_slot: int = 50
     max_chunk_length: int = 320
-    plugin_version: str = "1.2.0"
+    plugin_version: str = "1.2.3"

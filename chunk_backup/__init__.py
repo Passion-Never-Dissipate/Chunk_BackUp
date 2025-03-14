@@ -21,8 +21,8 @@ Prefix = '!!cb'
 config_path = os.path.join(".", "config", "chunk_backup", "chunk_backup.json")
 config_name = "chunk_backup.json"
 cfg = cb_config
-server_path = cb_config.server_path
 dimension_info = cb_config.dimension_info
+data_getter = cb_config.data_getter
 region_obj: Optional[region] = None
 time_out = 10
 countdown = 10
@@ -59,8 +59,8 @@ class GetServerData:
         global region_obj
 
         self.index = 1
-        ServerInterface.get_instance().execute(f"data get entity {self.player} Pos")
-        ServerInterface.get_instance().execute(f"data get entity {self.player} Dimension")
+        ServerInterface.get_instance().execute(data_getter["get_pos"].format(name=self.player))
+        ServerInterface.get_instance().execute(data_getter["get_dimension"].format(name=self.player))
         success = wait_until(
             lambda: self.coord and self.dimension,
             time_out,
@@ -71,20 +71,18 @@ class GetServerData:
             raise GetPlayerDataTimeout
 
         self.index = None
-        self.coord = [float(p.strip('d')) for p in self.coord.strip("[]").split(',')]
-        self.dimension = self.dimension.strip('"')
         self.get_saved_info()
 
     def get_saved_info(self):
         global region_obj
         self.index = 3
-        ServerInterface.get_instance().execute("save-off")
+        ServerInterface.get_instance().execute(data_getter["auto_save_off"])
         if not wait_until(lambda: self.save_off, time_out, initial_interval=0.001):
             self.index = None
             raise SavaoffTimeout
 
         self.index = 4
-        ServerInterface.get_instance().execute("save-all flush")
+        ServerInterface.get_instance().execute(data_getter["save_worlds"])
         if not wait_until(lambda: self.save_all, time_out, initial_interval=0.01, max_interval=0.1):
             self.index = None
             raise SaveallTimeout
@@ -123,13 +121,13 @@ def check_backup_state(func):
         except Timeout as error:
             source.reply(tr("prompt_msg.backup.timeout", Prefix))
             if not type(error).__name__ == "GetPlayerDataTimeout":
-                source.get_server().execute("save-on")
+                source.get_server().execute(data_getter["auto_save_on"])
 
         except BackupError as error:
             server_data = None
             region_obj = None
             if not type(error).__name__ == "BackupTimeout":
-                source.get_server().execute("save-on")
+                source.get_server().execute(data_getter["auto_save_on"])
             source.reply(error.args[0])
 
         except BackError as error:
@@ -139,6 +137,7 @@ def check_backup_state(func):
         except Exception:
             server_data = None
             region_obj = None
+            source.get_server().execute(data_getter["auto_save_on"])
             source.reply(tr("error.unknown_error", traceback.format_exc()))
 
         finally:
@@ -147,7 +146,7 @@ def check_backup_state(func):
                     server_data = None
                 if region_obj:
                     region_obj = None
-                    source.get_server().execute("save-on")
+                    source.get_server().execute(data_getter["auto_save_on"])
                 region.backup_state = None
                 return
 
@@ -174,8 +173,9 @@ def cb_make(src: InfoCommandSource, dic: dict):
     if not (server_data.dimension in swap_dict):
         raise UnidentifiedDimension(server_data.dimension)
     region_obj.user_pos = " ".join([str(i) for i in server_data.coord])
-    selected = selector((((server_data.coord[0], server_data.coord[-1]), radius),),
-                        max_chunk_size=cfg.max_chunk_length).group_by_region()
+    selected = selector(((
+        (server_data.coord[0], server_data.coord[-1]), radius
+        ),), max_chunk_size=cfg.max_chunk_length).group_by_region()
     region_obj.src = src
     region_obj.cfg = cfg
     region_obj.coords = selected
@@ -339,6 +339,7 @@ def cb_back(src: InfoCommandSource, dic: dict):
     src.get_server().stop()
 
 
+@new_thread("chunk_backup")
 def on_server_stop(server: PluginServerInterface, server_return_code: int):
     global region_obj
     try:
@@ -376,6 +377,7 @@ def cb_confirm(source: CommandSource):
     region.back_state = 3
 
 
+@new_thread("cb_del")
 def cb_del(source: InfoCommandSource, dic: dict):
     try:
         # 获取文件夹地址
@@ -409,12 +411,14 @@ def cb_set_config(source: InfoCommandSource, dic: dict):
             new_dict["max_chunk_length"] = dic["length"]
 
         save_json_file(config_path, new_dict)
+        source.get_server().reload_plugin("region_backup")
         source.reply(tr("prompt_msg.set.done"))
 
     except Exception:
         source.reply(tr("error.unknown_error", traceback.format_exc()))
 
 
+@new_thread("cb_show")
 def cb_show(src: InfoCommandSource, dic: dict):
     args = src.get_info().content.split()
     is_overwrite = (args[-1] == "overwrite")
@@ -448,6 +452,7 @@ def cb_show(src: InfoCommandSource, dic: dict):
         src.reply(tr("error.unknown_error", traceback.format_exc()))
 
 
+@new_thread("cb_list")
 def cb_list(source: InfoCommandSource, dic: dict):
     backup_path = region.get_backup_path(cfg, source.get_info().content)
     dynamic = (backup_path == cfg.backup_path)
@@ -531,33 +536,43 @@ def cb_force_reload(source: CommandSource):
     server_data = None
     region_obj = None
     region.clear()
-    source.get_server().execute("save-on")
+    source.get_server().execute(data_getter["auto_save_on"])
     source.reply(tr("prompt_msg.reload.done"))
     source.get_server().reload_plugin("chunk_backup")
 
 
 # 消息监听器
 def on_info(server: PluginServerInterface, info: Info):
-    if server_data and not region_obj:
-        if isinstance(server_data.player, str) and info.content.startswith(
-                f"{server_data.player} has the following entity data: ") and server_data.index == 1 and info.is_from_server:
-            if not server_data.coord:
-                server_data.coord = info.content.split(sep="entity data: ")[-1]
-            else:
-                server_data.dimension = info.content.split(sep="entity data: ")[-1]
-            return
+    if not server_data or region_obj:
+        return
 
-        if info.content.startswith(
-                "Automatic saving is now disabled") and server_data.index == 3 and info.is_from_server:
-            server_data.save_off = 1
-            return
+    if not info.is_from_server:
+        return
 
-        if info.content.startswith("Saved the game") and server_data.index == 4 and info.is_from_server:
-            server_data.save_all = 1
+    if server_data.index == 1:
+        # 处理坐标获取
+        if not server_data.coord:
+            pos = re.match(data_getter["get_pos_regex"].format(name=server_data.player), info.content)
+            if pos:
+                server_data.coord = [float(pos.group('x')), float(pos.group('y')), float(pos.group('z'))]
+
+        # 处理维度获取
+        elif not server_data.dimension:
+            dim = re.match(data_getter["get_dimension_regex"].format(name=server_data.player), info.content)
+            if dim:
+                server_data.dimension = dim.group('dimension')
+        return
+
+    if server_data.index == 3 and info.content == data_getter["save_off_regex"]:
+        server_data.save_off = 1
+        return
+
+    if server_data.index == 4 and info.content == data_getter["saved_world_regex"]:
+        server_data.save_all = 1
 
 
 def on_load(server: PluginServerInterface, old):
-    global cfg, dimension_info, server_path, Prefix, server_data, region_obj
+    global cfg, dimension_info, Prefix, server_data, region_obj, data_getter
 
     if old:
         server_data = old.server_data
@@ -575,8 +590,8 @@ def on_load(server: PluginServerInterface, old):
     cfg = server.load_config_simple(config_name, target_class=cb_config)
 
     Prefix = cfg.prefix
-    server_path = cfg.server_path
     dimension_info = cfg.dimension_info
+    data_getter = cfg.data_getter
 
     server.register_help_message(Prefix, tr("introduction.register_message"))
     lvl = cfg.minimum_permission_level

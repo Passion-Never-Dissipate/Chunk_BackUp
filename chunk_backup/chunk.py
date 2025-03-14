@@ -40,13 +40,10 @@ class Chunk:
                 local_x = chunk_x % 32
                 local_z = chunk_z % 32
                 data = cls._read_chunk_data(input_path, chunk_x, chunk_z)
-                if data:
-                    chunks_data[(local_x, local_z)] = data
+                # 显式记录所有选中的区块，数据不存在时标记为 None
+                chunks_data[(local_x, local_z)] = data  # data 可能为 None
 
-            if not chunks_data:
-                cls.init_region_file(os.path.join(output_dir, region_file))
-            else:
-                cls._create_region_file(output_path, chunks_data)
+            cls._create_region_file(output_path, chunks_data)
 
         return True
 
@@ -57,9 +54,6 @@ class Chunk:
         overwrite: 是否覆盖目标区域中已存在的区块
         backup_path: 如果提供，则将目标区域中被覆盖的区块备份到该路径生成的区域文件中
         """
-        # 初始化关键变量
-        region_x = None
-        region_z = None
         backup_chunks = {}  # 始终初始化备份字典
 
         # 读取源数据
@@ -89,16 +83,22 @@ class Chunk:
 
         with open(target_region_path, 'r+b') as target_f:
             for chunk in source_chunks:
-                if chunk['sector_count'] == 0:
-                    continue
 
                 local_x = chunk['local_x']
                 local_z = chunk['local_z']
                 offset_index = local_x + local_z * 32
 
+                if chunk['timestamp'] == 0:
+                    continue
+
                 # 读取目标文件对应位置的偏移表数据
                 target_f.seek(4 * offset_index)
-                existing_offset = struct.unpack('>I', target_f.read(4))[0]
+                offset_data = target_f.read(4)
+                if len(offset_data) < 4:  # 处理不完整的偏移数据
+                    existing_offset = 0
+                else:
+                    existing_offset = struct.unpack('>I', offset_data)[0]
+
                 existing_sectors = existing_offset & 0xFF
                 existing_start = existing_offset >> 8
 
@@ -110,12 +110,25 @@ class Chunk:
                     # 读取目标区块数据（包含空状态）
                     target_chunk = cls._read_chunk_with_nullable(target_region_path, full_x, full_z)
 
-                    # 记录备份的条件：
-                    # 1. 源区块有数据 且 2. 需要覆盖 或 目标区块存在数据/空状态
-                    if chunk['sector_count'] > 0 and (overwrite or existing_sectors > 0):
-                        # 特殊标记空状态区块
+                    if overwrite:
+                        # 当 overwrite=True 时，无论源区块是否有数据，只要目标区块存在数据/空状态都需要备份
+                        backup_condition = existing_sectors > 0 or chunk['sector_count'] > 0
+                    else:
+                        # 当 overwrite=False 时，仅备份目标区块存在数据且被覆盖的情况
+                        backup_condition = existing_sectors > 0 and chunk['sector_count'] > 0
+
+                    if backup_condition:
                         backup_data = target_chunk if target_chunk else {'status': 'empty'}
                         backup_chunks[(local_x, local_z)] = backup_data
+
+                if chunk['sector_count'] == 0:
+                    if overwrite:
+                        # 将目标区块设置为空
+                        target_f.seek(4 * offset_index)
+                        target_f.write(struct.pack('>I', 0))  # 设置偏移为0
+                        target_f.seek(4096 + 4 * offset_index)
+                        target_f.write(struct.pack('>I', chunk['timestamp']))  # 更新时间戳
+                    continue  # 跳过后续数据写入步骤
 
                 # 分配写入位置
                 write_position = cls._allocate_space(free_sectors, chunk['sector_count'], target_f)
@@ -168,34 +181,27 @@ class Chunk:
         current_sector = 2
 
         for (local_x, local_z), data in chunks_data.items():
+            offset_index = 4 * (local_x + local_z * 32)
+            timestamp_index = 4096 + 4 * (local_x + local_z * 32)
             if data is None:
-                offset_index = 4 * (local_x + local_z * 32)
+                # 显式空区块：时间戳设为1
                 header[offset_index:offset_index + 4] = b'\x00\x00\x00\x00'
-                timestamp_index = 4096 + 4 * (local_x + local_z * 32)
-                header[timestamp_index:timestamp_index + 4] = b'\x00\x00\x00\x00'
-
-        # 再处理正常数据区块
-        for local_z in range(32):
-            for local_x in range(32):
-                chunk_key = (local_x, local_z)
-                if chunk_key not in chunks_data or chunks_data[chunk_key] is None:
-                    continue
-
-                chunk = chunks_data[chunk_key]
+                header[timestamp_index:timestamp_index + 4] = struct.pack('>I', 1)  # 显式空区块
+            else:
+                # 正常数据区块
                 raw_data = (
-                        struct.pack('>I', len(chunk['data']) + 1) +
-                        bytes([chunk['compression_type']]) +
-                        chunk['data']
+                        struct.pack('>I', len(data['data']) + 1) +
+                        bytes([data['compression_type']]) +
+                        data['data']
                 )
                 sectors_needed = (len(raw_data) + 4095) // 4096
                 padded_data = raw_data.ljust(sectors_needed * 4096, b'\x00')
 
-                offset_index = 4 * (local_x + local_z * 32)
+                timestamp = data['timestamp'] if data['timestamp'] != 0 else 1
                 offset_entry = (current_sector << 8) | sectors_needed
-                header[offset_index:offset_index + 4] = struct.pack('>I', offset_entry)
 
-                timestamp_index = 4096 + 4 * (local_x + local_z * 32)
-                header[timestamp_index:timestamp_index + 4] = struct.pack('>I', chunk['timestamp'])
+                header[offset_index:offset_index + 4] = struct.pack('>I', offset_entry)
+                header[timestamp_index:timestamp_index + 4] = struct.pack('>I', timestamp)
 
                 data_sectors += padded_data
                 current_sector += sectors_needed
@@ -242,9 +248,15 @@ class Chunk:
                 if sector_offset == 0 or num_sectors == 0:
                     return None
 
-                # 读取原始数据
                 f.seek(sector_offset * 4096)
-                length = struct.unpack('>I', f.read(4))[0]
+                length_data = f.read(4)
+                if len(length_data) != 4:
+                    return None
+
+                length = struct.unpack('>I', length_data)[0]
+                if length < 1:
+                    return None
+
                 compression_type = ord(f.read(1))
                 compressed_data = f.read(length - 1)
 
@@ -261,13 +273,16 @@ class Chunk:
         except Exception as e:
             ServerInterface.get_instance().broadcast(
                 tr("error.system_error.read_chunk_file_error", chunk_x, chunk_z, e))
-            return
+            return None
 
     @classmethod
     def init_region_file(cls, file_path):
-        """初始化一个空区域文件（填充8KB头部）"""
+        """初始化一个空区域文件（严格合规的8KB头部）"""
         with open(file_path, 'wb') as f:
-            f.write(b'\x00' * 8192)
+            # 前4096字节全0（偏移表）
+            f.write(b'\x00' * 4096)
+            # 后4096字节全0（时间戳表）
+            f.write(b'\x00' * 4096)
 
     @classmethod
     def _allocate_space(cls, free_sectors, required_sectors, file_handle):
