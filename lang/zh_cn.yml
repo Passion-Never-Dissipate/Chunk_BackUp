@@ -7,6 +7,7 @@ chunk_backup:
     help_message: |
         ------ {1} {2} ------
         一个以区块为单位的§a备份§f/§c回档§f插件
+        §c插件>=1.2.1版本无法兼容之前版本的备份，请不要在不兼容的情况下进行回档!
         §3作者: FRUITS_CANDY, Bexerlmao
         §d【常用指令】
         #sc={0} help<>st=点击运行指令#§7{0} help §f查看所有指令用法(§b高级用法都在里面§f)
@@ -23,11 +24,13 @@ chunk_backup:
         #sc={0} set<>st=点击运行指令#§7{0} set slot §e[<数量>] §f修改动态备份槽位最大数量
         #sc={0} reload<>st=点击运行指令#§7{0} reload §f重载插件
         #sc={0} force_reload<>st=点击运行指令#§7{0} force_reload §f强行重载插件,用于插件功能无法正常使用
+        §c插件>=1.2.1版本无法兼容之前版本的备份，请不要在不兼容的情况下进行回档!
         #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=点我进入插件仓库了解更多用法#§d想了解更详细的用法?§b点我了解更多§6<——
 
     full_help_message: |
         §d【全部指令】
         #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=点我进入插件仓库了解更多用法#§d想了解更详细的用法?§b点我了解更多§6<——
+        §c插件>=1.2.1版本无法兼容之前版本的备份，请不要在不兼容的情况下进行回档!
         #sc={0}<>st=点击运行指令#§7{0} §f查看帮助信息
         #sc={0} help<>st=点击运行指令#§7{0} help §e查看所有指令用法
         #sc={0} make 0<>st=点击运行指令#§7{0} make §6<区块半径> §e[<注释>] §f以当前区块为中心,备份边长为2倍半径+1的区块/§e<注释>§f为可选注释
@@ -82,6 +85,8 @@ chunk_backup:
       parse_region_pos_fail: "无法备份: 区域坐标解析失败"
       read_region_file_fail: "读取区域文件 {0} 失败: {1}"
       read_chunk_fail: "读取区块失败"
+      invalid_source_header: "§c源区域文件 {0} 的头部信息不正确，已跳过备份该区域内的区块"
+      invalid_target_header: "目标区域文件 {0} 的头部信息不正确，已跳过该区域"
 
   prompt_msg:
     invalid_input: "§6§l[CB] §f无效的输入,请检查格式是否正确!"

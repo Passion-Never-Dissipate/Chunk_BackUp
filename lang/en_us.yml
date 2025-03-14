@@ -83,6 +83,8 @@ chunk_backup:
       parse_region_pos_fail: "§cCannot backup: Region coordinates invalid."
       read_region_file_fail: "§cFailed to read region file {0}: {1}"
       read_chunk_fail: "§cFailed to read chunk."
+      invalid_source_header: "The header information of the source region file {0} is incorrect and has been skipped"
+      invalid_target_header: "The header information of the target region file {0} is incorrect and has been skipped"
 
   prompt_msg:
     invalid_input: "§6§l[CB] §fInvalid input. Check syntax!"
