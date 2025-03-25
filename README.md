@@ -338,7 +338,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >              "world_name": "world",
 >              "region_folder": [
 >                  "DIM1/poi",
->
+>                  "DIM1/entities",
 >                  "DIM1/region"
 >              ]
 >              }
