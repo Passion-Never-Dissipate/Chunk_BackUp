@@ -9,7 +9,35 @@ class cb_info(Serializable):
     backup_dimension: list = []
     comment: str = ""
     command: str = ""
-    version_created: str = "1.2.3"
+    version_created: str = "1.3.0"
+    minecraft_version: str = ""
+
+
+class cb_custom_info(Serializable):
+    time_created: str = ""
+    time: str = ""
+    custom_name: str = ""
+    user_created: str = ""
+    user: str = ""
+    backup_type: str = "custom"
+    backup_dimension: list = []
+    version_created: str = "1.3.0"
+    version_saved: str = "1.3.0"
+    minecraft_version: str = ""
+    sub_slot: dict = {}
+
+
+class sub_slot_info(Serializable):
+    time_created: str = ""
+    backup_type: str = ""
+    backup_dimension: str = ""
+    user_created: str = ""
+    chunk_top_left_pos: list = []
+    chunk_bottom_right_pos: list = []
+    """backup_range: str = """""
+    command: str = ""
+    comment: str = ""
+    version_created: str = "1.3.0"
 
 
 class cb_config(Serializable):
@@ -68,9 +96,10 @@ class cb_config(Serializable):
         "force_reload": 3,
         "list": 0,
         "show": 1,
-        "set": 2
+        "set": 2,
+        "custom": 1
     }
     slot: int = 10
     static_slot: int = 50
     max_chunk_length: int = 320
-    plugin_version: str = "1.2.3"
+    plugin_version: str = "1.3.0"
