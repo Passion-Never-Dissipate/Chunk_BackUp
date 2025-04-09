@@ -9,12 +9,11 @@ import copy
 
 from typing import Optional
 from collections import defaultdict
-
-from chunk_backup.config import cb_config, cb_info
+from mcdreforged.api.types import ServerInterface, InfoCommandSource
+from chunk_backup.config import cb_config, cb_info, cb_custom_info, sub_slot_info
 from chunk_backup.chunk import Chunk as chunk
 from chunk_backup.errors import MaxChunkLength, MaxChunkRadius, StaticMore, DynamicMore
 from chunk_backup.tools import tr, FileStatsAnalyzer as analyzer
-from mcdreforged.api.types import InfoCommandSource
 
 
 def ignore_specific_files(src_dir, extensions):
@@ -49,26 +48,26 @@ class Region:
 
     def __init__(self):
         self.cfg = cb_config
-        self.src: Optional[InfoCommandSource] = None
+        """self.src: Optional[InfoCommandSource] = None"""
         self.backup_type: str = "chunk"
         self.backup_path: Optional[str] = None
         self.slot: str = "slot1"
-        self.coords: Optional[dict] = None
-        self.dimension: Optional[str, list] = []
-        self.world_name: Optional[str, list] = []
-        self.region_folder: Optional[list] = None
+        self.coords: Optional[list, dict] = []
+        self.dimension: Optional[list] = []
+        self.world_name: Optional[list] = []
+        self.region_folder: Optional[list] = []
 
     def copy(self):
         time.sleep(0.1)
 
-        if self.backup_type == "chunk":
+        if self.backup_type in ("chunk", "custom"):
+            for world_name, region_folder, coords in zip(self.world_name, self.region_folder, self.coords):
+                source_dir = [os.path.join(self.cfg.server_path, world_name, folder) for folder in region_folder]
+                target_dir = [os.path.join(self.backup_path, self.slot, world_name, folder) for folder in region_folder]
 
-            source_dir = [os.path.join(self.cfg.server_path, self.world_name, folder) for folder in self.region_folder]
-            target_dir = [os.path.join(self.backup_path, self.slot, self.world_name, folder) for folder in self.region_folder]
-
-            for source, target in zip(source_dir, target_dir):
-                os.makedirs(target, exist_ok=True)
-                chunk.export_grouped_regions(source, target, self.coords)
+                for source, target in zip(source_dir, target_dir):
+                    os.makedirs(target, exist_ok=True)
+                    chunk.export_grouped_regions(source, target, coords)
 
         else:
             server_path = self.cfg.server_path
@@ -115,7 +114,16 @@ class Region:
                     if not os.path.exists(target_dir):
                         os.makedirs(target_dir, exist_ok=True)
                     overwrite_dir = os.path.join(overwrite_folder, world_name, region_dir)
-                    if self.backup_type == "chunk":
+
+                    if getattr(self, "sub_slot_groups", None):
+                        chunk.custom_restore_direct(source_dir, target_dir, self.coords[dimension], overwrite_dir)
+                        if overwrite_dir:
+                            with os.scandir(overwrite_dir) as entries:
+                                for _ in entries:
+                                    break
+                                else:
+                                    os.rmdir(overwrite_dir)
+                    elif self.backup_type in ("chunk", "custom"):
                         Region._process_chunk(source_dir, target_dir, overwrite_dir)
                     else:
                         Region._process_region(source_dir, target_dir, overwrite_dir)
@@ -232,17 +240,52 @@ class Region:
 
     def save_info_file(self, src: InfoCommandSource = None, comment=None):
         info_path = os.path.join(self.backup_path, self.slot, "info.json")
-        if not src:
-            info_path = os.path.join(self.cfg.backup_path, self.cfg.overwrite_backup_folder, "info.json")
+        if not src: info_path = os.path.join(self.cfg.backup_path, self.cfg.overwrite_backup_folder, "info.json")
         info = cb_info.get_default().serialize()
         info["time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         info["command"] = src.get_info().content if src and src.get_info().is_player else tr("prompt_msg.comment.nocommand")
         info["user"] = src.get_info().player if src and src.get_info().is_player else tr("prompt_msg.comment.console")
         info["backup_dimension"] = self.dimension
         info["comment"] = comment if comment else tr("prompt_msg.comment.overwrite_comment")
-        info["backup_type"] = self.backup_type
-        if getattr(self, "user_pos", None):
-            info["user_pos"] = getattr(self, "user_pos")
+        info["backup_type"] = "chunk" if getattr(self, "sub_slot_groups", None) else self.backup_type
+        info["minecraft_version"] = ServerInterface.get_instance().get_server_information().version
+        if getattr(self, "user_pos", None): info["user_pos"] = getattr(self, "user_pos")
+
+        if getattr(self, "selector_obj", None):
+            info["chunk_top_left_pos"] = [i for i in getattr(self, "selector_obj").corner_chunks["top_left"]]
+            info["chunk_bottom_right_pos"] = [i for i in getattr(self, "selector_obj").corner_chunks["bottom_right"]]
+
+        with open(info_path, "w", encoding="utf-8") as fp:
+            json.dump(info, fp, ensure_ascii=False, indent=4)
+
+    def save_custom_info_file(self, custom_obj: dict, src: InfoCommandSource = None, overwrite=False):
+        info_path = os.path.join(self.backup_path, self.slot, "info.json")
+        if overwrite: info_path = os.path.join(self.cfg.backup_path, self.cfg.overwrite_backup_folder, "info.json")
+        info = cb_custom_info.get_default().serialize()
+        info["custom_name"] = custom_obj["custom_name"]
+        info["time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        info["time_created"] = custom_obj["time_created"]
+        info["user"] = src.get_info().player if src and src.get_info().is_player else tr("prompt_msg.comment.console")
+        info["user_created"] = custom_obj["user_created"]
+        info["version_created"] = custom_obj["version_created"]
+        info["backup_dimension"] = self.dimension
+        info["minecraft_version"] = ServerInterface.get_instance().get_server_information().version
+
+        sub_slots = custom_obj["sub_slot"]
+        for index, sub_slot in enumerate(sub_slots.values(), start=1):
+            sub_info = sub_slot_info.get_default().serialize()
+            sub_info["time_created"] = sub_slot["time_created"]
+            sub_info["user_created"] = sub_slot["user_created"]
+            sub_info["backup_type"] = sub_slot["backup_type"]
+            if sub_slot.get("user_pos"): sub_info["user_pos"] = sub_slot["user_pos"]
+            sub_info["chunk_top_left_pos"] = sub_slot["chunk_top_left_pos"]
+            sub_info["chunk_bottom_right_pos"] = sub_slot["chunk_bottom_right_pos"]
+            sub_info["backup_dimension"] = sub_slot["backup_dimension"]
+            sub_info["command"] = sub_slot["command"]
+            sub_info["comment"] = sub_slot["comment"]
+            sub_info["version_created"] = sub_slot["version_created"]
+            info["sub_slot"][str(index)] = sub_info
+
         with open(info_path, "w", encoding="utf-8") as fp:
             json.dump(info, fp, ensure_ascii=False, indent=4)
 
@@ -254,14 +297,18 @@ class Region:
             os.makedirs(cfg.static_backup_path, exist_ok=True)
 
     @classmethod
-    def _get_sorted_slots(cls, backup_path):
+    def _get_sorted_slots(cls, backup_path, numeric_only=False):
         """获取排序后的slot列表"""
-        pattern = re.compile(r'^slot([1-9]\d*)$')
-        slot_list = [
-            i for i in os.listdir(backup_path)
-            if os.path.isdir(os.path.join(backup_path, i)) and pattern.match(i)
-        ]
-        return sorted(slot_list, key=lambda x: int(re.search(r'\d+', x).group()))
+        pattern = re.compile(r'^slot([1-9]\d*)$')  # 匹配非零开头的自然数
+        slot_entries = []
+        for dir_name in os.listdir(backup_path):
+            dir_path = os.path.join(backup_path, dir_name)
+            if os.path.isdir(dir_path) and (match := pattern.match(dir_name)):
+                # 根据参数决定存储格式：纯数字或保留slot前缀[1,3]
+                slot_entries.append(int(match.group(1)) if numeric_only else dir_name)
+
+        # 按数值排序（无论输出格式如何）[2,4]
+        return sorted(slot_entries, key=lambda x: int(re.search(r'\d+', str(x)).group()))
 
     @classmethod
     def _rename_slots(cls, backup_path, sorted_list, index):
@@ -343,80 +390,125 @@ class ChunkSelector:
 
     新增参数：
     max_chunk_size：最大允许区块边长（默认51，即51x51的区域）
+    ignore_size_limit：是否跳过尺寸检查（默认False）
     """
 
-    def __init__(self, coordinates, max_chunk_size=51):
+    def __init__(self, coordinates, max_chunk_size=51, ignore_size_limit=False):
         self.max_chunk_size = max_chunk_size
+        self.ignore_size_limit = ignore_size_limit  # 新增控制参数
         self._validate_input(coordinates)
-        self.chunk_coords = self._calculate_chunks()
+        self._calculate_boundaries()
 
     def _validate_input(self, coords):
-        """增强参数验证（新增范围限制检查）"""
-
-        # 公共验证逻辑
+        """增强参数验证（新增尺寸检查开关）"""
         def check_size(width, height):
-            if width > self.max_chunk_size or height > self.max_chunk_size:
+            # 仅在未忽略检查时触发异常
+            if not self.ignore_size_limit and (width > self.max_chunk_size or height > self.max_chunk_size):
                 raise MaxChunkLength(self.max_chunk_size, width, height)
-        # 两点坐标模式
-        if len(coords) == 2:
+
+        if len(coords) == 2 and isinstance(coords[0], (tuple, list)) and len(coords[0]) == 2:
             self.mode = 'rectangle'
             (x1, z1), (x2, z2) = coords
-            self.chunk1 = (math.floor(x1 / 16), math.floor(z1 / 16))
-            self.chunk2 = (math.floor(x2 / 16), math.floor(z2 / 16))
+            self.chunk1 = (math.floor(x1/16), math.floor(z1/16))
+            self.chunk2 = (math.floor(x2/16), math.floor(z2/16))
 
-            # 计算实际区块尺寸
-            width = abs(self.chunk1[0] - self.chunk2[0]) + 1
-            height = abs(self.chunk1[1] - self.chunk2[1]) + 1
+            width = abs(self.chunk1[0]-self.chunk2[0]) + 1
+            height = abs(self.chunk1[1]-self.chunk2[1]) + 1
             check_size(width, height)
-
-        # 中心点+半径模式
         else:
             self.mode = 'square'
             (center_x, center_z), radius = coords[0]
-            # 计算实际区块尺寸（边长 = 2r + 1）
-            actual_size = 2 * radius + 1
-            if actual_size > self.max_chunk_size:
+            actual_size = 2*radius + 1
+            # 增加检查开关判断
+            if not self.ignore_size_limit and actual_size > self.max_chunk_size:
                 raise MaxChunkRadius(radius, actual_size, self.max_chunk_size)
-            # 计算区块范围
-            center_chunk = (math.floor(center_x / 16), math.floor(center_z / 16))
-            self.chunk1 = (center_chunk[0] - radius, center_chunk[1] - radius)
-            self.chunk2 = (center_chunk[0] + radius, center_chunk[1] + radius)
+            center_chunk = (math.floor(center_x/16), math.floor(center_z/16))
+            self.chunk1 = (center_chunk[0]-radius, center_chunk[1]-radius)
+            self.chunk2 = (center_chunk[0]+radius, center_chunk[1]+radius)
 
-        return True
+    def _calculate_boundaries(self):
+        """计算区块范围并保存边界值"""
+        self.min_x = min(self.chunk1[0], self.chunk2[0])
+        self.max_x = max(self.chunk1[0], self.chunk2[0])
+        self.min_z = min(self.chunk1[1], self.chunk2[1])
+        self.max_z = max(self.chunk1[1], self.chunk2[1])
 
-    def _calculate_chunks(self):
-        """计算所选区域内的所有区块坐标"""
-        min_x = min(self.chunk1[0], self.chunk2[0])
-        max_x = max(self.chunk1[0], self.chunk2[0])
-        min_z = min(self.chunk1[1], self.chunk2[1])
-        max_z = max(self.chunk1[1], self.chunk2[1])
-
+    def _generate_chunks(self):
+        """按需生成区块坐标集合（新增方法）"""
         return {
             (x, z)
-            for x in range(min_x, max_x + 1)
-            for z in range(min_z, max_z + 1)
+            for x in range(self.min_x, self.max_x + 1)
+            for z in range(self.min_z, self.max_z + 1)
         }
 
-    def group_by_region(self):
-        """将区块按区域文件分组，返回指定格式的字典"""
+    @property
+    def corner_chunks(self):
+        """获取四角区块坐标字典"""
+        return {
+            'top_left': (self.min_x, self.min_z),
+            'bottom_left': (self.min_x, self.max_z),
+            'top_right': (self.max_x, self.min_z),
+            'bottom_right': (self.max_x, self.max_z)
+        }
+
+    def intersects(self, other):
+        """判断两个区块选择器是否有交集"""
+
+        x_overlap = (self.min_x <= other.max_x) and (self.max_x >= other.min_x)
+        z_overlap = (self.min_z <= other.max_z) and (self.max_z >= other.min_z)
+        return x_overlap and z_overlap
+
+    @classmethod
+    def combine_and_group(cls, selectors):
+        """合并多个选区并生成区域分组结果"""
+        # 验证输入类型并收集所有区块坐标
+        if not all(isinstance(s, ChunkSelector) for s in selectors):
+            raise TypeError("所有参数必须是ChunkSelector实例")
+
+        combined_chunks = set()
+        for selector in selectors:
+            combined_chunks.update(selector._generate_chunks())  # 调用各实例的生成方法
+
+        # 复用分组逻辑
+        return cls._group_chunks(combined_chunks)
+
+    @classmethod
+    def from_chunk_coords(cls, chunk1, chunk2, max_chunk_size=51, ignore_size_limit=False):
+        """
+        直接通过区块坐标创建选区
+        :param chunk1: 区块坐标1，格式 (chunk_x, chunk_z)
+        :param chunk2: 区块坐标2，格式 (chunk_x, chunk_z)
+        :param max_chunk_size: 最大允许区块边长
+        :param ignore_size_limit: 是否跳过尺寸检查
+        :return: ChunkSelector 实例
+        """
+
+        # 将区块坐标转换为世界坐标中点（如区块0的中心为(8,8)）
+        def to_world_center(chunk_coord):
+            return chunk_coord[0] * 16 + 8, chunk_coord[1] * 16 + 8
+
+        world_coord1 = to_world_center(chunk1)
+        world_coord2 = to_world_center(chunk2)
+        return cls(
+            coordinates=(world_coord1, world_coord2),
+            max_chunk_size=max_chunk_size,
+            ignore_size_limit=ignore_size_limit
+        )
+
+    @staticmethod
+    def _group_chunks(chunk_coords):
+        """通用分组逻辑（供实例方法和合并方法共用）"""
         region_map = defaultdict(set)
-
-        # 第一步：分组到区域
-        for chunk_x, chunk_z in self.chunk_coords:
-            region_x = chunk_x // 32
-            region_z = chunk_z // 32
+        for x, z in chunk_coords:
+            region_x, region_z = x // 32, z // 32
             region_key = f"r.{region_x}.{region_z}.mca"
-            region_map[region_key].add((chunk_x, chunk_z))
+            region_map[region_key].add((x, z))
 
-        # 第二步：构建结果字典
         result = {}
-        for _region, chunks in region_map.items():
-            # 判断是否覆盖整个区域
-            if len(chunks) == 32 * 32:
-                result[_region] = _region
-            else:
-                # 转换为排序后的元组列表
-                sorted_chunks = sorted(chunks, key=lambda c: (c[0], c[1]))
-                result[_region] = [tuple(c) for c in sorted_chunks]
-
+        for region, chunks in region_map.items():
+            result[region] = region if len(chunks) == 32 ** 2 else sorted(chunks)
         return result
+
+    def group_by_region(self):
+        """更新后的实例方法（复用通用逻辑）"""
+        return self._group_chunks(self._generate_chunks())
