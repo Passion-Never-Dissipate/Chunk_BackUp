@@ -1,6 +1,8 @@
 import os
 import struct
 import shutil
+import traceback
+
 from chunk_backup.tools import tr
 from mcdreforged.api.all import ServerInterface
 
@@ -147,7 +149,8 @@ class Chunk:
                     target_f.seek(4096 + 4 * offset_index)
                     target_f.write(struct.pack('>I', chunk['timestamp']))
                 except Exception as e:
-                    ServerInterface.get_instance().logger.error("error.system_error.write_chunk_file_error", local_x, local_z, e)
+                    ServerInterface.get_instance().logger.error("error.system_error.write_chunk_file_error", local_x,
+                                                                local_z, e)
 
         if backup_path and backup_chunks:
             # 转换备份数据结构
@@ -169,6 +172,171 @@ class Chunk:
         """elif backup_path and not backup_chunks:
             ServerInterface.get_instance().logger.error(tr("warn.not_select_abel_backup_chunk"))"""
         return True
+
+    @classmethod
+    def merge_custom_region_file(cls, source_region_path, target_region_path, chunk_list, overwrite=False,
+                                 backup_path=None):
+        """
+        将源区域文件中指定区块列表的区块合并到目标区域文件中
+        :param source_region_path: 源区域文件路径（.region）
+        :param target_region_path: 目标区域文件路径（.mca）
+        :param chunk_list: 需要合并的区块列表，如 [(chunk_x1, chunk_z1), ...]
+        :param overwrite: 是否覆盖目标区域中已存在的区块
+        :param backup_path: 备份被替换区块的路径（可选）
+        :return: 操作是否成功
+        """
+        server = ServerInterface.get_instance()
+        logger = server.logger
+        success = True
+
+        # 解析目标区域坐标（用于备份命名）
+        try:
+            region_x, region_z = cls._parse_region_filename(target_region_path)
+        except Exception as e:
+            logger.error(tr("error.region_error.mca_pos_analyze_error", e))
+            return False
+
+        # 扫描目标文件空闲扇区
+        free_sectors = cls._scan_free_sectors(target_region_path)
+
+        # 初始化备份数据
+        backup_chunks = {}
+        if backup_path:
+            os.makedirs(os.path.dirname(backup_path), exist_ok=True)
+
+        with open(target_region_path, 'r+b') as target_f:
+            for chunk_x, chunk_z in chunk_list:
+                # 读取源区块数据
+                source_data = cls._read_chunk_data(source_region_path, chunk_x, chunk_z)
+
+                # 计算本地坐标（local_x, local_z）
+                local_x = chunk_x % 32
+                local_z = chunk_z % 32
+                offset_index = local_x + local_z * 32
+
+                # ==== 备份逻辑 ====
+                if backup_path:
+                    full_x = region_x * 32 + local_x
+                    full_z = region_z * 32 + local_z
+                    target_data = cls._read_chunk_with_nullable(target_region_path, full_x, full_z)
+
+                    backup_data = target_data if target_data else {'status': 'empty'}
+                    backup_chunks[(local_x, local_z)] = backup_data
+
+                # ==== 写入逻辑 ====
+                if source_data is None:
+                    # 源区块不存在，若需要覆盖则清空目标区块
+                    if overwrite:
+                        # 将目标区块偏移设为0
+                        target_f.seek(4 * offset_index)
+                        target_f.write(struct.pack('>I', 0))
+                        # 更新时间戳为1（显式空区块）
+                        target_f.seek(4096 + 4 * offset_index)
+                        target_f.write(struct.pack('>I', 1))
+                    continue
+
+                # 分配空间
+                sector_count = (len(source_data['data']) + 5) // 4096  # 4字节长度 + 1字节压缩类型 + 数据
+                write_position = cls._allocate_space(free_sectors, sector_count, target_f)
+
+                # 构造原始数据（含长度和压缩类型）
+
+                raw_data = (
+                        struct.pack('>I', len(source_data['data']) + 1) +
+                        bytes([source_data['compression_type']]) +
+                        source_data['data']
+                ).ljust(sector_count * 4096, b'\x00')
+
+                try:
+                    # 写入数据
+                    target_f.seek(write_position)
+                    target_f.write(raw_data)
+
+                    # 更新偏移表
+                    new_offset = (write_position // 4096 << 8) | sector_count
+                    target_f.seek(4 * offset_index)
+                    target_f.write(struct.pack('>I', new_offset))
+
+                    # 更新时间戳
+                    timestamp = source_data.get('timestamp', 1)
+                    target_f.seek(4096 + 4 * offset_index)
+                    target_f.write(struct.pack('>I', timestamp))
+                except Exception as e:
+                    logger.error(tr("error.system_error.write_chunk_file_error", chunk_x, chunk_z, e))
+                    success = False
+
+        # ==== 生成备份文件 ====
+        if backup_path and backup_chunks:
+            formatted_backup = {}
+            for (lx, lz), data in backup_chunks.items():
+                if data.get('status') == 'empty':
+                    formatted_backup[(lx, lz)] = None
+                else:
+                    formatted_backup[(lx, lz)] = data
+            cls._create_region_file(backup_path, formatted_backup)
+
+        return success
+
+    @classmethod
+    def custom_restore_direct(cls, backup_dir, original_dir, region_dict, backup_backup_dir=None):
+        """
+        直接合并模式的自定义回档
+        :param backup_dir: 备份文件夹路径（包含 .region 文件）
+        :param original_dir: 原版区域文件夹路径（包含 .mca 文件）
+        :param region_dict: 区域配置字典，如 {"r.0.0.mca": [(0,1), (0,2)], ...}
+        :param backup_backup_dir: 备份被替换区块的目录（可选）
+        :return: 是否全部成功
+        """
+        server = ServerInterface.get_instance()
+        logger = server.logger
+        all_success = True
+
+        for region_file, chunks in region_dict.items():
+
+            source_path = os.path.join(backup_dir, region_file.replace('.mca', '.region')) if region_file != chunks else os.path.join(
+                backup_dir, region_file)
+            target_path = os.path.join(original_dir, region_file)
+
+            # 检查源文件是否存在
+            if not os.path.exists(source_path):
+                if os.path.exists(os.path.join(backup_dir, region_file)):
+                    source_path = os.path.join(backup_dir, region_file)
+                # logger.error(tr('error.custom_restore.backup_not_found', source_path))"
+                else:
+                    all_success = False
+                    continue
+
+            # 处理备份路径
+            backup_path = None
+            if backup_backup_dir:
+                backup_file = region_file.replace('.mca', 'region') if region_file != chunks else region_file
+                backup_path = os.path.join(backup_backup_dir, backup_file)
+
+            if not os.path.exists(target_path):
+                cls.init_region_file(target_path)
+
+            # 执行合并
+            try:
+                if region_file == chunks:
+                    if backup_backup_dir:
+                        shutil.copy2(source_path, backup_path)
+                    shutil.copy2(source_path, target_path)
+                    continue
+
+                success = cls.merge_custom_region_file(
+                    source_region_path=source_path,
+                    target_region_path=target_path,
+                    chunk_list=chunks,
+                    overwrite=True,
+                    backup_path=backup_path
+                )
+                if not success:
+                    all_success = False
+            except Exception:
+                logger.error(tr('error.unknown_error', traceback.format_exc()))
+                all_success = False
+
+        return all_success
 
     @classmethod
     def _create_region_file(cls, output_path, chunks_data):
