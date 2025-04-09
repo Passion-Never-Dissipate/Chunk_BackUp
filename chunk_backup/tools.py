@@ -47,6 +47,35 @@ def update_config(old_config, template=config.get_default().serialize()):
     return old_config
 
 
+class DictReindexer:
+    def __init__(self, original_dict):
+        self.data = original_dict.copy()
+        self.original_keys = list(original_dict.keys())
+
+    def reindex_keys(self):
+        """将字典键重排序为连续整数序列"""
+        values = list(self.data.values())
+        self.data = {i+1: values[i] for i in range(len(values))}
+        return self.data
+
+    def is_ordered_correctly(self):
+        """检查是否符合 {1:v1, 2:v2...} 的键规律"""
+        current_keys = list(self.data.keys())
+        expected_keys = list(range(1, len(self.data)+1))
+        return current_keys == expected_keys
+
+    def insert_value(self, new_value):
+        """插入新值到排序后的字典末尾"""
+        if not self.is_ordered_correctly():
+            self.reindex_keys()
+        new_key = len(self.data) + 1
+        self.data[new_key] = new_value
+        return self.data
+
+    def get_current_dict(self):
+        return self.data.copy()
+
+
 class FileStatsAnalyzer:
     def __init__(self, target_dir: str):
         """
