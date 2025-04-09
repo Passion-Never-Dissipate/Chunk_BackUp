@@ -6,9 +6,11 @@ import math
 import shutil
 import time
 import copy
+import traceback
 
 from typing import Optional
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from mcdreforged.api.types import ServerInterface, InfoCommandSource
 from chunk_backup.config import cb_config, cb_info, cb_custom_info, sub_slot_info
 from chunk_backup.chunk import Chunk as chunk
@@ -48,7 +50,6 @@ class Region:
 
     def __init__(self):
         self.cfg = cb_config
-        """self.src: Optional[InfoCommandSource] = None"""
         self.backup_type: str = "chunk"
         self.backup_path: Optional[str] = None
         self.slot: str = "slot1"
@@ -60,37 +61,94 @@ class Region:
     def copy(self):
         time.sleep(0.1)
 
+        # 根据备份类型选择处理方式
         if self.backup_type in ("chunk", "custom"):
-            for world_name, region_folder, coords in zip(self.world_name, self.region_folder, self.coords):
-                source_dir = [os.path.join(self.cfg.server_path, world_name, folder) for folder in region_folder]
-                target_dir = [os.path.join(self.backup_path, self.slot, world_name, folder) for folder in region_folder]
-
-                for source, target in zip(source_dir, target_dir):
-                    os.makedirs(target, exist_ok=True)
-                    chunk.export_grouped_regions(source, target, coords)
-
+            self._parallel_export_regions()
         else:
-            server_path = self.cfg.server_path
-            dimension_info = self.cfg.dimension_info
-            for dimension in self.dimension:
-                world_name = dimension_info[dimension]["world_name"]
-                self.world_name.append(world_name)
-                region_folder = dimension_info[dimension]["region_folder"]
-                source_dir = [os.path.join(server_path, world_name, folder) for folder in region_folder]
-                target_dir = [os.path.join(self.backup_path, self.slot, world_name, folder) for folder in region_folder]
-                extensions = (".mca",)
-                for source, target in zip(source_dir, target_dir):
-                    if os.path.exists(target):
-                        shutil.rmtree(target, ignore_errors=True)
-                    shutil.copytree(
+            self._parallel_copy_directories()
+
+    def _parallel_export_regions(self):
+        """多线程处理区块导出"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # 准备任务列表
+        tasks = []
+        for world_name, region_folder, coords in zip(self.world_name, self.region_folder, self.coords):
+            for _folder in region_folder:
+                source_dir = os.path.join(self.cfg.server_path, world_name, _folder)
+                target_dir = os.path.join(self.backup_path, self.slot, world_name, _folder)
+                tasks.append((source_dir, target_dir, coords))
+
+        # 使用线程池并行处理
+        with ThreadPoolExecutor(self.cfg.max_workers) as executor:
+            futures = []
+            for source, target, coord_data in tasks:
+                # 确保目标目录存在（主线程中预先创建）
+                os.makedirs(target, exist_ok=True)
+                # 提交导出任务
+                futures.append(
+                    executor.submit(
+                        chunk.export_grouped_regions,
                         source,
                         target,
-                        ignore=ignore_specific_files(source, extensions),
-                        dirs_exist_ok=True
+                        coord_data
                     )
-            self.dimension = [dimension_info[d]["dimension"] for d in self.dimension]
+                )
 
-        return True
+            # 处理任务结果
+            for future in as_completed(futures):
+                try:
+                    future.result()
+
+                except Exception:
+                    ServerInterface.get_instance().logger.error(tr("unknown_error", traceback.format_exc()))
+
+    def _parallel_copy_directories(self):
+        """多线程处理目录复制"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # 准备任务列表
+        tasks = []
+        for dimension in self.dimension:
+            world_name = self.cfg.dimension_info[dimension]["world_name"]
+            region_folder = self.cfg.dimension_info[dimension]["region_folder"]
+            for folder in region_folder:
+                source = os.path.join(self.cfg.server_path, world_name, folder)
+                target = os.path.join(self.backup_path, self.slot, world_name, folder)
+                tasks.append((source, target))
+
+        # 使用线程池并行处理
+        with ThreadPoolExecutor(self.cfg.max_workers) as executor:
+            futures = []
+            for source, target in tasks:
+                futures.append(
+                    executor.submit(
+                        self._safe_copytree,
+                        source,
+                        target,
+                        (".mca",)
+                    )
+                )
+
+            # 处理任务结果
+            for future in as_completed(futures):
+                try:
+                    future.result()
+
+                except Exception:
+                    ServerInterface.get_instance().logger.error(tr("unknown_error", traceback.format_exc()))
+
+    @staticmethod
+    def _safe_copytree(source, target, extensions):
+        """线程安全的目录复制"""
+        if os.path.exists(target):
+            shutil.rmtree(target, ignore_errors=True)
+        shutil.copytree(
+            source,
+            target,
+            ignore=ignore_specific_files(source, extensions),
+            dirs_exist_ok=True
+        )
 
     def back(self):
         overwrite_folder = os.path.join(self.cfg.backup_path, self.cfg.overwrite_backup_folder)
@@ -102,49 +160,54 @@ class Region:
             os.makedirs(overwrite_folder, exist_ok=True)
 
         backup_path = self.backup_path
-        if self.slot != self.cfg.overwrite_backup_folder:
+        max_workers = 4  # 根据CPU核心数调整
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+
             for dimension in self.dimension:
                 world_name = swap_dict[dimension]["world_name"]
                 region_folder = swap_dict[dimension]["region_folder"]
                 for region_dir in region_folder:
+                    # 获取路径参数
                     source_dir = os.path.join(backup_path, self.slot, world_name, region_dir)
                     if not os.path.exists(source_dir):
                         continue
                     target_dir = os.path.join(server_path, world_name, region_dir)
-                    if not os.path.exists(target_dir):
-                        os.makedirs(target_dir, exist_ok=True)
-                    overwrite_dir = os.path.join(overwrite_folder, world_name, region_dir)
+                    overwrite_dir = os.path.join(overwrite_folder, world_name, region_dir) if self.slot != self.cfg.overwrite_backup_folder else None
 
-                    if getattr(self, "sub_slot_groups", None):
-                        chunk.custom_restore_direct(source_dir, target_dir, self.coords[dimension], overwrite_dir)
-                        if overwrite_dir:
-                            with os.scandir(overwrite_dir) as entries:
-                                for _ in entries:
-                                    break
-                                else:
-                                    os.rmdir(overwrite_dir)
-                    elif self.backup_type in ("chunk", "custom"):
-                        Region._process_chunk(source_dir, target_dir, overwrite_dir)
-                    else:
-                        Region._process_region(source_dir, target_dir, overwrite_dir)
+                    # 提交任务到线程池
+                    futures.append(executor.submit(
+                        self._process_single_region,
+                        dimension,
+                        source_dir,
+                        target_dir,
+                        overwrite_dir
+                    ))
 
+            # 等待所有任务完成并处理异常
+            for future in as_completed(futures):
+                try:
+                    future.result()
+
+                except Exception:
+                    ServerInterface.get_instance().logger.error(tr("unknown_error", traceback.format_exc()))
+
+    def _process_single_region(self, dimension, source_dir, target_dir, overwrite_dir):
+        """单个区域文件的处理逻辑（线程安全）"""
+        if getattr(self, "sub_slot_groups", None):
+            # 自定义回档逻辑
+            if overwrite_dir:
+                os.makedirs(overwrite_dir, exist_ok=True)
+            chunk.custom_restore_direct(
+                source_dir,
+                target_dir,
+                self.coords[dimension],  # 需要确保线程安全访问
+                overwrite_dir
+            )
+        elif self.backup_type in ("chunk", "custom"):
+            self._process_chunk(source_dir, target_dir, overwrite_dir)
         else:
-            for dimension in self.dimension:
-                world_name = swap_dict[dimension]["world_name"]
-                region_folder = swap_dict[dimension]["region_folder"]
-                for region_dir in region_folder:
-                    source_dir = os.path.join(backup_path, self.slot, world_name, region_dir)
-                    if not os.path.exists(source_dir):
-                        continue
-                    target_dir = os.path.join(server_path, world_name, region_dir)
-                    if not os.path.exists(target_dir):
-                        os.makedirs(target_dir, exist_ok=True)
-                    if self.backup_type == "chunk":
-                        Region._process_chunk(source_dir, target_dir)
-                    else:
-                        Region._process_region(source_dir, target_dir)
-
-        return True
+            self._process_region(source_dir, target_dir, overwrite_dir)
 
     @classmethod
     def _process_chunk(cls, source_dir, target_dir, overwrite_dir=None):
@@ -247,7 +310,7 @@ class Region:
         info["user"] = src.get_info().player if src and src.get_info().is_player else tr("prompt_msg.comment.console")
         info["backup_dimension"] = self.dimension
         info["comment"] = comment if comment else tr("prompt_msg.comment.overwrite_comment")
-        info["backup_type"] = "chunk" if getattr(self, "sub_slot_groups", None) else self.backup_type
+        info["backup_type"] = "chunk" if getattr(self, "custom_back", None) else self.backup_type
         info["minecraft_version"] = ServerInterface.get_instance().get_server_information().version
         if getattr(self, "user_pos", None): info["user_pos"] = getattr(self, "user_pos")
 

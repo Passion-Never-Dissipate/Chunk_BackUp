@@ -609,9 +609,11 @@ def cb_back(src: InfoCommandSource, dic: dict):
     swap_dict = region.swap_dimension_key(dimension_info)
     if any(i not in swap_dict for i in info["backup_dimension"]):
         raise InvalidInfoDimension(dic["slot"])
+    region_obj.dimension = info["backup_dimension"]
     region_obj.backup_type = info["backup_type"]
 
     if "sub_slot_groups" in dic:
+
         if info["backup_type"] != "custom":
             raise NotCustom(dic["slot"])
         parts = re.split(r'[,，]', dic["sub_slot_groups"])
@@ -630,7 +632,7 @@ def cb_back(src: InfoCommandSource, dic: dict):
 
         if len(slots) != len(set(slots)): raise InputSlotRepeat
         for slot in slots:
-            if slot not in info["sub_slot"]:
+            if str(slot) not in info["sub_slot"]:
                 region_obj = None
                 raise UnidentifiedSubSlot(slot)
 
@@ -640,7 +642,6 @@ def cb_back(src: InfoCommandSource, dic: dict):
             dimension.add(sub_slots[str(_slot)]["backup_dimension"])
 
         region_obj.dimension = list(dimension)
-
         groups_by_dimension = {}
         groups_coords_by_dimension = {}
         for _slot in slots:
@@ -658,6 +659,8 @@ def cb_back(src: InfoCommandSource, dic: dict):
         del groups_by_dimension
 
         region_obj.sub_slot_groups = True
+
+    if info["backup_type"] == "custom": region_obj.custom_back = True
 
     ext = [".mca", ".region"]
     obj_slot = analyzer(os.path.join(region_obj.backup_path, region_obj.slot))
@@ -796,7 +799,7 @@ def cb_show(src: InfoCommandSource, dic: dict):
         info = safe_load_json(info_path)
         if "page" in dic:
             if info["backup_type"] != "custom":
-                src.reply(tr("prompt_msg.show.not_custom"))
+                src.reply(tr("prompt_msg.show.not_custom", dic.get('slot', 1)))
                 return
             p = dic["page"]
             num = len(info["sub_slot"])
@@ -882,28 +885,31 @@ def cb_show(src: InfoCommandSource, dic: dict):
                         key, value = slots[index], sub_slots[slots[index]]
                         if index < num - 1:
                             msg_components.append(
-                                tr("prompt_msg.show.sub_slot", dic["slot"], key, Prefix, value["comment"]))
+                                tr("prompt_msg.show.sub_slot", dic.get('slot', 1), key, Prefix, value["comment"]))
                         else:
                             msg_components.append(
-                                tr("prompt_msg.show.end_sub_slot", dic["slot"], key, Prefix, value["comment"]))
+                                tr("prompt_msg.show.end_sub_slot", dic.get('slot', 1), key, Prefix, value["comment"]))
 
                     # noinspection PyUnboundLocalVariable
                     if lp:
                         # noinspection PyUnboundLocalVariable
-                        msg = tr("prompt_msg.show.last_page", p, lp, dic["slot"], Prefix)
+                        msg = tr("prompt_msg.show.last_page", p, lp, dic.get('slot', 1), Prefix)
                         # noinspection PyUnboundLocalVariable
                         if np:
                             # noinspection PyUnboundLocalVariable
-                            msg = msg + "  " + tr("prompt_msg.show.next_page", p, np, dic["slot"], Prefix)
+                            msg = msg + "  " + tr("prompt_msg.show.next_page", p, np, dic.get('slot', 1), Prefix)
                         msg = msg + "  " + tr("prompt_msg.list.page", end, num)
                         msg_components.append(msg)
                     elif np:
                         # noinspection PyUnboundLocalVariable
-                        msg = tr("prompt_msg.show.next_page", p, np, dic["slot"], Prefix)
+                        msg = tr("prompt_msg.show.next_page", p, np, dic.get('slot', 1), Prefix)
                         msg = msg + "  " + tr("prompt_msg.list.page", end, num)
                         msg_components.append(msg)
 
         else:
+            if "sub_slot" in dic:
+                src.reply(tr("prompt_msg.show.not_custom", dic.get('slot', 1)))
+                return
             # noinspection PyUnboundLocalVariable
             msg_components = [
                 tr("prompt_msg.show.title"),

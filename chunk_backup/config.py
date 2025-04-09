@@ -102,4 +102,5 @@ class cb_config(Serializable):
     slot: int = 10
     static_slot: int = 50
     max_chunk_length: int = 320
+    max_workers = 4
     plugin_version: str = "1.3.0"

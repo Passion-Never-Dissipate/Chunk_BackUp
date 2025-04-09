@@ -2,7 +2,6 @@ import os
 import struct
 import shutil
 import traceback
-
 from chunk_backup.tools import tr
 from mcdreforged.api.all import ServerInterface
 
@@ -73,8 +72,7 @@ class Chunk:
             return
 
             # 如果需要备份则重新初始化字典
-        if backup_path:
-            backup_chunks = {}
+        if backup_path: backup_chunks = {}
 
         # 初始化目标文件
         if not os.path.exists(target_region_path):
@@ -94,7 +92,7 @@ class Chunk:
                     continue
 
                 # 读取目标文件对应位置的偏移表数据
-                target_f.seek(4 * offset_index)
+                """target_f.seek(4 * offset_index)
                 offset_data = target_f.read(4)
                 if len(offset_data) < 4:  # 处理不完整的偏移数据
                     existing_offset = 0
@@ -102,7 +100,7 @@ class Chunk:
                     existing_offset = struct.unpack('>I', offset_data)[0]
 
                 existing_sectors = existing_offset & 0xFF
-                existing_start = existing_offset >> 8
+                existing_start = existing_offset >> 8"""
 
                 # ===== 新增备份逻辑 =====
                 if backup_path:
@@ -112,16 +110,8 @@ class Chunk:
                     # 读取目标区块数据（包含空状态）
                     target_chunk = cls._read_chunk_with_nullable(target_region_path, full_x, full_z)
 
-                    if overwrite:
-                        # 当 overwrite=True 时，无论源区块是否有数据，只要目标区块存在数据/空状态都需要备份
-                        backup_condition = existing_sectors > 0 or chunk['sector_count'] > 0
-                    else:
-                        # 当 overwrite=False 时，仅备份目标区块存在数据且被覆盖的情况
-                        backup_condition = existing_sectors > 0 and chunk['sector_count'] > 0
-
-                    if backup_condition:
-                        backup_data = target_chunk if target_chunk else {'status': 'empty'}
-                        backup_chunks[(local_x, local_z)] = backup_data
+                    backup_data = target_chunk if target_chunk else {'status': 'empty'}
+                    backup_chunks[(local_x, local_z)] = backup_data
 
                 if chunk['sector_count'] == 0:
                     if overwrite:
@@ -194,7 +184,7 @@ class Chunk:
             region_x, region_z = cls._parse_region_filename(target_region_path)
         except Exception as e:
             logger.error(tr("error.region_error.mca_pos_analyze_error", e))
-            return False
+            return
 
         # 扫描目标文件空闲扇区
         free_sectors = cls._scan_free_sectors(target_region_path)
@@ -236,13 +226,16 @@ class Chunk:
                     continue
 
                 # 分配空间
-                sector_count = (len(source_data['data']) + 5) // 4096  # 4字节长度 + 1字节压缩类型 + 数据
+                """total_length = len(source_data['data']) + 5  # 4字节长度 +1字节压缩类型 +数据"""
+                sector_count = (len(source_data['data']) + 5 + 4095) // 4096  # 正确向上取整
+
+                # 分配空间
                 write_position = cls._allocate_space(free_sectors, sector_count, target_f)
 
                 # 构造原始数据（含长度和压缩类型）
-
+                data_length = len(source_data['data']) + 1  # 压缩类型占1字节
                 raw_data = (
-                        struct.pack('>I', len(source_data['data']) + 1) +
+                        struct.pack('>I', data_length) +
                         bytes([source_data['compression_type']]) +
                         source_data['data']
                 ).ljust(sector_count * 4096, b'\x00')
@@ -257,7 +250,7 @@ class Chunk:
                     target_f.seek(4 * offset_index)
                     target_f.write(struct.pack('>I', new_offset))
 
-                    # 更新时间戳
+                    # 更新时间戳（使用源区块的时间戳）
                     timestamp = source_data.get('timestamp', 1)
                     target_f.seek(4096 + 4 * offset_index)
                     target_f.write(struct.pack('>I', timestamp))
@@ -289,12 +282,10 @@ class Chunk:
         """
         server = ServerInterface.get_instance()
         logger = server.logger
-        all_success = True
 
         for region_file, chunks in region_dict.items():
 
-            source_path = os.path.join(backup_dir, region_file.replace('.mca', '.region')) if region_file != chunks else os.path.join(
-                backup_dir, region_file)
+            source_path = os.path.join(backup_dir, region_file.replace('.mca', '.region')) if region_file != chunks else os.path.join(backup_dir, region_file)
             target_path = os.path.join(original_dir, region_file)
 
             # 检查源文件是否存在
@@ -303,13 +294,12 @@ class Chunk:
                     source_path = os.path.join(backup_dir, region_file)
                 # logger.error(tr('error.custom_restore.backup_not_found', source_path))"
                 else:
-                    all_success = False
                     continue
 
             # 处理备份路径
             backup_path = None
             if backup_backup_dir:
-                backup_file = region_file.replace('.mca', 'region') if region_file != chunks else region_file
+                backup_file = region_file.replace('.mca', '.region') if region_file != chunks else region_file
                 backup_path = os.path.join(backup_backup_dir, backup_file)
 
             if not os.path.exists(target_path):
@@ -319,24 +309,19 @@ class Chunk:
             try:
                 if region_file == chunks:
                     if backup_backup_dir:
-                        shutil.copy2(source_path, backup_path)
+                        shutil.copy2(target_path, backup_path)
                     shutil.copy2(source_path, target_path)
                     continue
-
-                success = cls.merge_custom_region_file(
+                cls.merge_custom_region_file(
                     source_region_path=source_path,
                     target_region_path=target_path,
                     chunk_list=chunks,
                     overwrite=True,
                     backup_path=backup_path
                 )
-                if not success:
-                    all_success = False
+
             except Exception:
                 logger.error(tr('error.unknown_error', traceback.format_exc()))
-                all_success = False
-
-        return all_success
 
     @classmethod
     def _create_region_file(cls, output_path, chunks_data):
@@ -386,7 +371,7 @@ class Chunk:
         """
         base = os.path.basename(region_filename)
         parts = base.split('.')
-        if len(parts) >= 4:
+        if len(parts) == 4 and parts[0] == "r" and parts[3] in ("mca", "region"):
             try:
                 region_x = int(parts[1])
                 region_z = int(parts[2])
@@ -504,7 +489,7 @@ class Chunk:
             for i in range(1024):
                 offset_data = header[i * 4:(i + 1) * 4]
                 if len(offset_data) != 4:
-                    ServerInterface.get_instance().logger.error(tr("warn.migration_incomplete", i))
+                    ServerInterface.get_instance().logger.warning(tr("warn.migration_incomplete", i))
                     offset = 0
                 else:
                     offset = struct.unpack('>I', offset_data)[0]
@@ -519,7 +504,7 @@ class Chunk:
                 if sector_offset > 0:
                     max_sector = file_size // 4096
                     if sector_offset + sector_count > max_sector:
-                        ServerInterface.get_instance().logger.error(tr("warn.sector_out_of_bounds", i % 32, i // 32))
+                        ServerInterface.get_instance().logger.warning(tr("warn.sector_out_of_bounds", i % 32, i // 32))
                         sector_count = 0
                         raw_data = b''
                     else:
@@ -574,7 +559,7 @@ class Chunk:
             file_size = os.path.getsize(region_path)
 
             if file_size % 4096 != 0:
-                ServerInterface.get_instance().logger.error(tr("warn.mca_size_abnormal", os.path.basename(region_path)))
+                ServerInterface.get_instance().logger.warning(tr("warn.mca_size_abnormal", region_path))
 
             total_sectors = (file_size + 4095) // 4096  # 正确对齐
             used_sectors: set[int] = set()  # type: ignore
