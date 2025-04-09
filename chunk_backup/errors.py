@@ -32,6 +32,10 @@ class BackError(ChunkBackUpError):
     pass
 
 
+class CreateSubSlotError(ChunkBackUpError):
+    pass
+
+
 class InvalidInput(BackupError):
     def __init__(self):
         super().__init__(tr("prompt_msg.invalid_input"))
@@ -115,3 +119,28 @@ class BackTimeout(BackError):
 class InvalidInfoDimension(BackError):
     def __init__(self, *args):
         super().__init__(tr("prompt_msg.invalid_info_dimension", *args))
+
+
+class InputSlotRepeat(BackError):
+    def __init__(self):
+        super().__init__(tr("prompt_msg.back.input_slot_repeat"))
+
+
+class NotCustom(BackupError):
+    def __init__(self, *args):
+        super().__init__(tr("prompt_msg.show.not_custom", *args))
+
+
+class UnidentifiedCustom(CreateSubSlotError):
+    def __init__(self, *args):
+        super().__init__(tr("prompt_msg.custom.unidentified_custom", *args))
+
+
+class UnidentifiedSubSlot(CreateSubSlotError):
+    def __init__(self, *args):
+        super().__init__(tr("prompt_msg.custom.unidentified_sub_slot", *args))
+
+
+class EmptySubSlot(CreateSubSlotError):
+    def __init__(self, *args):
+        super().__init__(tr("prompt_msg.custom.empty_sub_slot", *args))
