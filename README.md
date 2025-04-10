@@ -437,8 +437,8 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >``` 
 >   {
 >        "make": 1,
->        "pos_make": 1,
->        "dim_make": 1,
+>        "pmake": 1,
+>        "dmake": 1,
 >        "back": 2,
 >        "restore": 2,
 >        "del": 2,
