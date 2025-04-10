@@ -2,151 +2,185 @@ chunk_backup:
 
   introduction:
 
-    register_message: "View commands related to §6chunk §abackup§f"
+    register_message: "View commands related to §6chunk§a backup§f"
 
     help_message: |
-        ------ {1} {2} ------  
-        A §abackup§f/§crestore§f plugin working in chunk units  
-        §3Author: FRUITS_CANDY, Bexerlmao  
-        §d【Common Commands】  
-        #sc={0} help<>st=Click to run command#§7{0} help §fView all command usages (§bAdvanced usage included§f)  
-        #sc={0} make 0<>st=Click to run command#§7{0} make §6<chunk radius> §e[<comment>] §fBackup chunks centered at current chunk with side length of 2*radius+1/§e<comment>§f is optional  
-        #sc={0} dmake<>st=Click to run command#§7{0} dmake §6<dimension:0=Overworld,-1=Nether,1=End> §e[<comment>] §fBackup all regions in specified dimensions (separate with §6,§f)/§aExample:0 or 0,-1  
-        #sc={0} pmake<>st=Click to run command#§7{0} pmake §6<x1> <z1> <x2> <z2> §7in §6<dimension> §e[<comment>] §fBackup chunks between two coordinates  
-        #sc={0} back<>st=Click to run command#§7{0} back §e[<slot>] §fRestore chunks from specified backup slot  
-        #sc={0} restore<>st=Click to run command#§7{0} restore §fRevert world to pre-restore state  
-        #sc={0} del<>st=Click to run command#§7{0} del §6<slot> §fDelete a backup slot  
-        #sc={0} confirm<>st=Click to run command#§7{0} confirm §fConfirm restoration  
-        #sc={0} abort<>st=Click to run command#§7{0} abort §fCancel ongoing restoration at any time  
-        #sc={0} list<>st=Click to run command#§7{0} list §e[<page>] §fDisplay backup slots  
-        #sc={0} show 1<>st=Click to run command#§7{0} show §e[<slot>] §fView detailed info of a slot  
-        #sc={0} set<>st=Click to run command#§7{0} set slot §e[<amount>] §fModify max dynamic backup slots  
-        #sc={0} reload<>st=Click to run command#§7{0} reload §fReload plugin  
-        #sc={0} force_reload<>st=Click to run command#§7{0} force_reload §fForce reload plugin when malfunctioning  
-        #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=Visit plugin repository#§dNeed more details?§bClick here§6<——  
+        ------ {1} {2} ------
+        A §abackup§f/§crestore§f plugin working in chunk units
+        §3Authors: FRUITS_CANDY, Bexerlmao
+        §d【Common Commands】
+        #sc={0} help<>st=Click to view usage#§7{0} help §fView all command usages (§bAdvanced features included§f)
+        #sc={0} make 0 comment<>st=Click to view usage#§7{0} make §6<radius> §e[<comment>] §fBackup chunks within 2*radius+1 square centered at current chunk/§e<comment>§f is optional
+        #sc={0} dmake 0,-1 comment<>st=Click to view usage#§7{0} dmake §6<dim:0=overworld,-1=nether,1=end> §e[<comment>] §fBackup all regions in specified dimensions (separated by §6,§f)/§aExample:0 or 0,-1
+        #sc={0} pmake 0 0 -100 -100 in 0 comment<>st=Click to view usage#§7{0} pmake §6<x1> <z1> <x2> <z2> §7in §6<dim> §e[<comment>] §fBackup chunk range between two coordinates
+        #sc={0} custom create<>st=Click to run#§7{0} custom create §6<name> §fCreate custom backup object
+        #sc={0} custom list<>st=Click to view usage#§7{0} custom list §e[<page>] §fList all custom backup objects
+        #sc={0} custom make <name> 0 comment<>st=Click to view usage#§7{0} custom make §6<name> <radius> §e[<comment>] §fAdd center+radius sub-backup to custom object
+        #sc={0} custom pmake <name> 0 0 100 100 in 0 comment<>st=Click to view usage#§7{0} custom pmake §6<name> <x1> <z1> <x2> <z2> §7in §6<dim> §e[<comment>] §fAdd coordinate range sub-backup
+        #sc={0} custom save <name><>st=Click to view usage#§7{0} custom save §6<name> §fExecute backup for custom object
+        #sc={0} back 1<>st=Click to view usage#§7{0} back §e[<slot>] §fRestore from specified backup slot
+        #sc={0} restore<>st=Click to view usage#§7{0} restore §eRevert to pre-restore state
+        #sc={0} del <slot><>st=Click to view usage#§7{0} del §6<slot> §fDelete a backup slot
+        #sc={0} confirm<>st=Click to view usage#§7{0} confirm §fConfirm restoration
+        #sc={0} abort<>st=Click to view usage#§7{0} abort §fCancel restoration at any time
+        #sc={0} list 1<>st=Click to view usage#§7{0} list §e[<page>] §fShow backup slots
+        #sc={0} show 1<>st=Click to view usage#§7{0} show §e[<slot>] §fView detailed slot info
+        #sc={0} set slot 10<>st=Click to view usage#§7{0} set slot §e<num> §fModify max dynamic slots
+        #sc={0} reload<>st=Click to view usage#§7{0} reload §eReload plugin
+        #sc={0} force_reload<>st=Click to view usage#§7{0} force_reload §fForce reload plugin
+        §bv1.3.0 added custom backups. Details via §a!!cb list
+        #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=Visit plugin repo#§dFull documentation?§bClick here§6<——
 
     full_help_message: |
-        full_help_message: |  
-        §d【All Commands】  
-        #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=Visit plugin repository#§dNeed more details?§bClick here§6<——  
-        #sc={0}<>st=Click to run command#§7{0} §fView help  
-        #sc={0} help<>st=Click to run command#§7{0} help §eView all commands  
-        #sc={0} make 0<>st=Click to run command#§7{0} make §6<chunk radius> §e[<comment>] §fBackup chunks with side length 2*radius+1  
-        #sc={0} make -s<>st=Click to run command#§7{0} make §b-s §6<same parameters> §fCreate §cStatic Backup§f (permanent)  
-        #sc={0} dmake<>st=Click to run command#§7{0} dmake §6<dimension> §e[<comment>] §fBackup entire dimension(s)  
-        #sc={0} dmake -s<>st=Click to run command#§7{0} dmake §b-s §6<same parameters> §fCreate §cStatic Backup§f  
-        #sc={0} pmake<>st=Click to run command#§7{0} pmake §6<x1> <z1> <x2> <z2> §7in §6<dimension> §e[<comment>] §fBackup rectangular chunk area  
-        #sc={0} pmake -s<>st=Click to run command#§7{0} pmake §b-s §6<same parameters> §fCreate §cStatic Backup§f  
-        #sc={0} back<>st=Click to run command#§7{0} back §e[<slot>] §fRestore from backup slot  
-        #sc={0} back -s<>st=Click to run command#§7{0} back §b-s §6<same parameters> §fRestore §cStatic Backup§f  
-        #sc={0} restore<>st=Click to run command#§7{0} restore §eRevert world state  
-        #sc={0} del<>st=Click to run command#§7{0} del §6<slot> §fDelete slot  
-        #sc={0} del -s<>st=Click to run command#§7{0} del §b-s §6<same parameters> §fDelete §cStatic Backup§f  
-        #sc={0} confirm<>st=Click to run command#§7{0} confirm §eConfirm restoration  
-        #sc={0} abort<>st=Click to run command#§7{0} abort §eCancel restoration anytime  
-        #sc={0} list<>st=Click to run command#§7{0} list §e[<page>] §fList backup slots  
-        #sc={0} list -s<>st=Click to run command#§7{0} list §b-s §6<same parameters> §fView §cStatic Backups§f  
-        #sc={0} show 1<>st=Click to run command#§7{0} show §e[<slot>] §fView slot details  
-        #sc={0} show -s 1<>st=Click to run command#§7{0} show §b-s §e[<slot>] §fView §cStatic Backup§f details  
-        #sc={0} show overwrite<>st=Click to run command#§7{0} show §eoverwrite §fView overwritten backups  
-        #sc={0} set slot<>st=Click to run command#§7{0} set slot §e[<amount>] §fModify dynamic slot limit  
-        #sc={0} set slot -s<>st=Click to run command#§7{0} set slot §b-s §e[<amount>] §fModify §cStatic Backup§f slot limit  
-        #sc={0} set max_chunk_length<>st=Click to run command#§7{0} set max_chunk_length §e[<side length>] §fSet max backup chunk length  
-        #sc={0} reload<>st=Click to run command#§7{0} reload §eReload plugin  
-        #sc={0} force_reload<>st=Click to run command#§7{0} force_reload §fForce reload plugin  
+        §d【All Commands】
+        #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=Visit plugin repo#§dFull documentation?§bClick here§6<——
+        #sc={0}<>st=Click to view#§7{0} §fShow help
+        #sc={0} help<>st=Click to view#§7{0} help §eView all commands
+        #sc={0} make 0 comment<>st=Click to view#§7{0} make §6<radius> §e[<comment>] §fStandard backup
+        #sc={0} make -s 0 comment<>st=Click to view#§7{0} make §b-s §fCreate §cstatic backup§f (permanent)
+        #sc={0} dmake 0,-1 comment<>st=Click to view#§7{0} dmake §6<dim> §e[<comment>] §fDimension backup
+        #sc={0} dmake -s 0,-1 comment<>st=Click to view#§7{0} dmake §b-s §fCreate §cstatic dimension backup§f
+        #sc={0} pmake 0 0 -100 -100 in 0 comment<>st=Click to view#§7{0} pmake §6<x1 z1 x2 z2> §7in §6<dim> §e[<comment>] §fCoordinate range backup
+        #sc={0} pmake -s 0 0 -100 -100 in 0 comment<>st=Click to view#§7{0} pmake §b-s §fCreate §cstatic coordinate backup§f
+        #sc={0} back 1<>st=Click to view#§7{0} back §e[<slot>] §fRestore
+        #sc={0} restore<>st=Click to view#§7{0} restore §eRevert restore
+        #sc={0} del <slot><>st=Click to view#§7{0} del §6<slot> §fDelete slot
+        #sc={0} del -s <slot><>st=Click to view#§7{0} del §b-s §fDelete §cstatic backup§f
+        #sc={0} confirm<>st=Click to view#§7{0} confirm §eConfirm
+        #sc={0} abort<>st=Click to view#§7{0} abort §eCancel operation
+        #sc={0} list 1<>st=Click to view#§7{0} list §e[<page>] §fList slots
+        #sc={0} list -s 1<>st=Click to view#§7{0} list §b-s §fList §cstatic backups§f
+        #sc={0} show 1<>st=Click to view#§7{0} show §e[<slot>] §fSlot details
+        #sc={0} show overwrite<>st=Click to view#§7{0} show §7overwrite §fShow overwrite slots
+        #sc={0} set slot 10<>st=Click to view#§7{0} set slot §e<num> §fSet max slots
+        #sc={0} set slot -s 50<>st=Click to view#§7{0} set slot §b-s §fSet §cstatic slots§f
+        #sc={0} set max_chunk_length 160<>st=Click to view#§7{0} set max_chunk_length §e<size> §fSet max chunk size
+        #sc={0} reload<>st=Click to view#§7{0} reload §eReload
+        #sc={0} force_reload<>st=Click to view#§7{0} force_reload §fForce reload
+        #sc={0} show <slot> page <page><>st=Click to view#§7{0} show §6<slot> §7page §6<page> §fPaginate sub-slots
+        #sc={0} show <slot> <sub_slot><>st=Click to view#§7{0} show §6<slot> §e<sub> §fSub-slot details
+        #sc={0} show -s <slot> page <page><>st=Click to view#§7{0} show §b-s §6<slot> page §6<page> §fStatic sub-slots
+        #sc={0} show -s <slot> <sub_slot><>st=Click to view#§7{0} show §b-s §6<slot> §e<sub> §fStatic sub-details
+        #sc={0} back <slot> 1,2,3<>st=Click to view#§7{0} back §6<slot> §e<subs> §fRestore specific sub-slots
+        #sc={0} back -s <slot> 1,2,3<>st=Click to view#§7{0} back §b-s §6<slot> §e<subs> §fStatic sub-restore
+        #sc={0} custom create <name><>st=Click to view#§7{0} custom create §6<name> §fCreate custom
+        #sc={0} custom list<>st=Click to view#§7{0} custom list §e[<page>] §fList customs
+        #sc={0} custom save <name><>st=Click to view#§7{0} custom save §6<name> §fSave custom
+        #sc={0} custom save -s <name><>st=Click to view#§7{0} custom save §b-s §fSave as §cstatic§f
+        #sc={0} custom show <name> page <page><>st=Click to view#§7{0} custom show §6<name> page §6<page> §fPaginate subs
+        #sc={0} custom show <name> <sub><>st=Click to view#§7{0} custom show §6<name> §e<sub> §fSub details
+        #sc={0} custom del <name><>st=Click to view#§7{0} custom del §6<name> §fDelete custom
+        #sc={0} custom del <name> <sub><>st=Click to view#§7{0} custom del §6<name> §e<sub> §fDelete sub
+        #sc={0} custom pmake <name> 0 0 100 100 in 0 comment<>st=Click to view#§7{0} custom pmake §6<name> <x1> <z1> <x2> <z2> §7in §6<dim> §e[<comment>] §fAdd coord sub
+        #sc={0} custom make <name> 0 comment<>st=Click to view#§7{0} custom make §6<name> <radius> §e[<comment>] §fAdd radius sub
 
   warn:
-    region_out_of_range: "§cSome chunks in the backup range are not generated. Adjust the range!"
-    not_select_able_backup_chunk: "§cWarning: Backup enabled but no backupable chunks found."
-    migration_incomplete: "§cWarning: Skipped incomplete migration entry {}."
-    sector_out_of_bounds: "§cWarning: Chunk ({0}, {1}) sector out of bounds. Skipped."
-    mca_size_abnormal: "§cWarning: Region file {} has abnormal size."
-    sector_range_invalid: "§cWarning: Invalid sector range [{0}-{1})."
+    region_out_of_range: "Some chunks in backup range haven't generated! Adjust range."
+    not_select_able_backup_chunk: "Warning: Backup enabled but no backupable chunks found"
+    migration_incomplete: "Warning: Incomplete offset table entry {} skipped"
+    sector_out_of_bounds: "Warning: Chunk ({0}, {1}) sector out of bounds, skipped"
+    mca_size_abnormal: "Warning: Abnormal region file {} size"
+    sector_range_invalid: "Warning: Invalid sector range [{0}-{1})"
 
   error:
-    server_error: "[CB] §cServer closed abnormally. Restoration aborted!"
-    unknown_error: "§cOperation failed. Error: {0}"
+    server_error: "[CB] Server shutdown error! Restoration aborted!"
+    unknown_error: "Operation failed: §c{0}"
 
     system_error:
-      read_chunk_file_error: "§cFailed to read chunk ({0}, {1}): {2}"
-      read_mca_file_error: "§cFailed to read backup file: {0}"
-      scan_mca_leisure_error: "§cFailed to scan free sectors: {0}"
-      write_chunk_file_error: "§cFailed to write chunk ({0}, {1}): {2}"
-      invalid_sector_parameter: "§cInvalid sector parameters: start={0}, count={1}"
+      read_chunk_file_error: "Failed reading chunk ({0}, {1}): {2}"
+      read_mca_file_error: "Failed reading backup file: {0}"
+      scan_mca_leisure_error : "Failed scanning free sectors: {0}"
+      write_chunk_file_error: "Failed writing chunk ({0}, {1}): {2}"
+      invalid_sector_parameter: "Invalid sector params: start={0}, count={1}"
 
     region_error:
-      mca_analyze_error: "§cCannot parse region file name: {0}"
-      mca_not_exist: "§cSource region file not found: {0}"
-      mca_pos_analyze_error: "§cFailed to parse target region coordinates: {0}"
-      mca_unable: "§cFile {0} is not a valid region file (size <8192 bytes)."
-      read_source_region_fail: "§cFailed to read source region: {0}"
-      parse_region_pos_fail: "§cCannot backup: Region coordinates invalid."
-      read_region_file_fail: "§cFailed to read region file {0}: {1}"
-      read_chunk_fail: "§cFailed to read chunk."
-      invalid_source_header: "The header information of the source region file {0} is incorrect and has been skipped"
-      invalid_target_header: "The header information of the target region file {0} is incorrect and has been skipped"
+      mca_analyze_error: "Cannot parse region filename: {0}"
+      mca_not_exist: "Source region missing: {0}"
+      mca_pos_analyze_error: "Failed parsing target region coords: {0}"
+      mca_unable: "Error: {0} not valid region file (size <8192 bytes)"
+      read_source_region_fail: "Failed reading source region: {0}"
+      parse_region_pos_fail: "Backup failed: Region coord parse error"
+      read_region_file_fail: "Failed reading region {0}: {1}"
+      read_chunk_fail: "Chunk read failure"
+      invalid_source_header: "§cInvalid header in source region {0}, skipped"
+      invalid_target_header: "Invalid header in target region {0}, skipped"
 
   prompt_msg:
-    invalid_input: "§6§l[CB] §fInvalid input. Check syntax!"
-    lack_permission: "§cYou don't have permission."
-    repeat_backup: "§6§l[CB] §fAnother backup/restore is in progress!"
-    repeat_dimension: "§6§l[CB] §fDuplicate dimensions in config. Check config.yml."
-    unidentified_dimension: "§6§l[CB] §fDimension §6{0}§f not in config. Add it manually."
-    invalid_info_dimension: "§6§l[CB] §fSlot §c{0}§f has invalid dimension data."
-    no_backable: "§6§l[CB] §fSlot §c{0}§f contains no restorable files."
+    invalid_input: "§6§l[CB] §fInvalid input! Check syntax."
+    lack_permission: "You lack permission for this command"
+    repeat_backup: "§6§l[CB] §fExisting backup/restore operation!"
+    repeat_dimension: "§6§l[CB] §fDuplicate dimensions in config!"
+    unidentified_dimension: "§6§l[CB] §fDimension §6{0}§f not in config!"
+    invalid_info_dimension: "§6§l[CB] §fSlot§c{0}§f has invalid dimension!"
+    no_backable: "§6§l[CB] §fNo restorable files in slot§c{0}§f!"
 
     backup:
-      start: "§6§l[CB] §aBacking up§f... Please wait."
+      start: "§6§l[CB] §aBackup§f in progress..."
       time: "§6§l[CB] §fDate: {0}; Comment: {1}"
-      done: "§6§l[CB] §aBackup completed§f in §6{0}§f seconds."
-      no_number_key: "§6§l[CB] §fDimension key §a{0}§f not found in config!"
-      no_player: "§6§l[CB] §cThis command can only be used by players."
+      custom_time: "§6§l[CB] §fDate: {0}; Custom: {1}"
+      done: "§6§l[CB] §aBackup§f completed in §6{}§fs"
+      no_number_key: "§6§l[CB] §fDimension key§a{0}§f missing!"
+      no_player: "§6§l[CB] §cPlayer-only command!"
       input_dim_error: "§6§l[CB] §cInvalid dimension input!"
-      input_dim_repeat: "§6§l[CB] §cDuplicate dimension input!"
-      timeout: "§6§l[CB] §aBackup timed out. Use §c/save-on§f or §c{0} force_reload§f to retry."
-      dynamic_more: "§6§l[CB] §bDynamic slots§f full! Max: §e{0}§f, Current: §e{1}§f."
-      static_more: "§6§l[CB] §bStatic slots§f full! Max: §e{0}§f, Current: §e{1}§f."
-      max_chunk_length: "§6§l[CB] §fChunk area exceeds limit (§a{0}§fx§a{0}§f). Current: §c{1}§fx§c{2}§f."
-      max_chunk_radius: "§6§l[CB] §fRadius §6{0}§f results in length §c{1}§f, exceeding max §a{2}§f."
+      input_dim_repeat: "§6§l[CB] §cDuplicate dimensions!"
+      timeout: "§6§l[CB] §aBackup timed out! Use§c/save-on§f or§c{} force_reload§f"
+      dynamic_more: "§6§l[CB] §bDynamic slots§f full! Max:§e{0}§f Current:§e{1}§f"
+      static_more: "§6§l[CB] §bStatic slots§f full! Max:§e{0}§f Current:§e{1}§f"
+      max_chunk_length: "§6§l[CB] §fMax size§a{0}§fx§a{0} §fCurrent:§c{1}§fx§c{2}§f"
+      max_chunk_radius: "§6§l[CB] §fRadius§6{0}§f exceeds max chunk size§a{2}§f"
 
     back:
-      start: "§6§l[CB] §fPreparing to restore slot §6{0}§f. Date: {1}; Comment: {2}"
-      click: "§6§l[CB] §fConfirm with #sc={0} confirm<>st=Click to confirm#§7{0} confirm§f or cancel with #sc={0} abort<>st=Click to cancel#§7{0} abort§f."
-      abort: "§6§l[CB] §aRestoration canceled."
-      down: "§6§l[CB] §cServer will close in {0} seconds!"
-      count: "§6§l[CB] §fClosing in §c{0}§f seconds. Use #sc={1} abort<>st=Cancel#§a{1} abort§f to stop restoring slot §6{2}§f."
-      run: "[Chunk BackUp] §aRestoration in progress..."
+      start: "§6§l[CB] §fRestoring from slot§6{0}§f, Date {1}; Comment: {2}"
+      custom_start: "§6§l[CB] §fRestoring from slot§6{0}§f, Date {1}; Custom: {2}"
+      click: "§6§l[CB] §fConfirm with#sc={0} confirm<>st=Click#§7{0} confirm §fCancel with#sc={0} abort<>st=Click#§7{0} abort"
+      abort: "§6§l[CB] §aRestore aborted"
+      down: "§6§l[CB] §cServer shutdown in {0} seconds!"
+      count: "§6§l[CB] §fShutdown in §c{0}s§f. Stop via#sc={1} abort<>st=Click#§a{1} abort§f slot§6{2}"
+      run: "[Chunk BackUp] §aRestoration in progress"
       no_dim_error: "§6§l[CB] §cDimension not in config!"
-      lack_info_file: "§6§l[CB] §cSlot missing info.json or invalid!"
-      lack_region_file: "§6§l[CB] §cNo region/chunk files in slot!"
-      timeout: "§6§l[CB] §cRestoration canceled due to inactivity."
-      server_error: "[Chunk BackUp] §cServer error. Restoration aborted!"
+      input_slot_repeat: "§6§l[CB] §cDuplicate slot input!"
+      lack_info_file: "§6§l[CB] §fSlot missing §cinfo.json§f!"
+      lack_region_file: "§6§l[CB] §cNo region files in slot!"
+      timeout: "§6§l[CB] §cInactivity timeout! Restore canceled"
 
     list:
-      empty_slot: "§6§l[CB] §fNo backup slots found."
-      out_page: "§6§l[CB] §cPage out of range!"
+      empty_slot: "§6§l[CB] §fNo backup slots"
+      out_page: "§6§l[CB] §cInvalid page number!"
+      info_broken: "[Slot§6{0}§f] §cinfo.json§f corrupted"
       dynamic: §d【Dynamic Backups】
       static: §d【Static Backups】
-      slot: '#st=Dimension: §a{5} §fUser: §b{6} §fCommand: §6{7}#[Slot §6{0}§f] #sc={8} back{4} {0}<>st=Restore Slot§6{0}#§a[▶] #sc={8} del{4} {0}<>st=Delete Slot§6{0}#§c[×] ##§a{1} §f{2} Comment: {3}'
-      empty_size: "[Slot §6{0}§f] Empty or missing §6info.json§f."
-      last_page: "#st=Page {0}. Click for page {1}<>sc={3} list{2} {1}#§b[Previous]"
-      next_page: "#st=Page {0}. Click for page {1}<>sc={3} list{2} {1}#§d[Next]"
+      slot: '#st=Dim: §a{5} User: §b{6} Cmd: §6{7}#[Slot§6{0}§f] #sc={8} show{4} {0}<>st=View#§6[C] #sc={8} back{4} {0}<>st=Restore#§a[▷] #sc={8} del{4} {0}<>st=Delete#§c[x] ##§a{1} §f{2} Comment: {3}'
+      custom_slot: '#st=Dim: §a{5} User: §b{6} #[Slot§6{0}§f] #sc={7} show{4} {0}<>st=View#§6[C] #sc={7} back{4} {0}<>st=Restore#§a[▷] #sc={7} del{4} {0}<>st=Delete#§c[x] ##§a{1} §f{2} Custom: {3}'
+      empty_size: "[Slot§6{}§f] Empty/missing §6info.json§f"
+      last_page: "#st=Page {0}, go to {1}<>sc={3} list{2} {1}#§b[Prev]"
+      next_page: "#st=Page {0}, go to {1}<>sc={3} list{2} {1}#§d[Next]"
       page: "##§7[§a{0}§7/§e{1}§7]"
       total_size: "Dynamic: §6{0} §rStatic: §b{1} §rTotal: §a{2}"
 
     show:
-      empty: "§6§l[CB] §fSlot§6{0}§f is empty or missing §6info.json"
-      title: §d【Slot Details】
+      empty: "§6§l[CB] §fSlot§6{0}§f empty/missing info"
+      not_custom: "§6§l[CB] §fSlot§6{0}§f not a custom backup"
+      end_sub_slot: '└─ [Sub§6{1}§f] #sc={2} show{4} {0} {1}<>st=View#§6[C] #sc={2} back{4} {0} {1}<>st=Restore#§a[▷] ##Comment: {3}'
+      sub_slot: '├─ [Sub§6{1}§f] #sc={2} show{4} {0} {1}<>st=View#§6[C] #sc={2} back{4} {0} {1}<>st=Restore#§a[▷] ##Comment: {3}'
+      last_page: "#st=Page {0}, go to {1}<>sc={3} show{4} {2} page {1}#§b[Prev]"
+      next_page: "#st=Page {0}, go to {1}<>sc={3} show{4} {2} page {1}#§d[Next]"
+      title: §d【Slot Info】
+      sub_title: "§d【Sub-slot Info】"
+      custom_name: "- Custom Name: §6{}"
       backup_dimension: "- Dimension: §6{}"
-      user: "- User: §3{}"
+      user_saved: "- User: §3{}"
       user_pos: "- Position: §6{}"
       no_pos: "- Position: None"
+      chunk_top_left_pos: "- Top-Left: §6{}"
+      chunk_bottom_right_pos: "- Bottom-Right: §6{}"
       command: "- Command: §a{}"
-      time: "- Date: §b{}"
+      time_saved: "- Date: §b{}"
       comment: "- Comment: {}"
       backup_type: "- Type: §9{}"
       size: "- Size: §d{}"
       version_created: "- Created Version: §e{}"
+      version_saved: "- Backup Version: §e{}"
+      minecraft_version: "- MC Version: §e{}"
 
     comment:
       empty_comment: §7Empty
@@ -154,15 +188,45 @@ chunk_backup:
       console: Server Console
       nocommand: None
 
+    del:
+      done: "§6§l[CB] §fSlot§6{0}§a deleted"
+      lack_slot: "§6§l[CB] §fSlot§6{0}§c not found"
+
     set:
       done: "§6§l[CB] §fConfig updated§a successfully"
 
-    del:
-      done: "§6§l[CB] §fSlot §6{0}§a deleted§f."
-      lack_slot: "§6§l[CB] §fSlot §6{0}§c not found."
-
     reload:
-      done: "§aChunk BackUp§f reloaded."
+      done: "§aChunk BackUp§f reloaded"
+      reload_error: "Reload failed:§c{0}"
 
-    abort: Nothing to abort.
-    confirm: Nothing to confirm.
+    custom:
+      empty: "§6§l[CB] §fNo custom backups"
+      empty_sub_slot: "§6§l[CB] §fCustom§c{0}§f has no subs"
+      repeat_custom: "§6§l[CB] §fCustom§c{0}§f exists"
+      unidentified_custom: "§6§l[CB] §fCustom§c{0}§f not found"
+      unidentified_sub_slot: "§6§l[CB] §fSub§c{0}§f not found"
+      create_custom_success: "§6§l[CB] §fCustom§6{0}§a created"
+      create_sub_slot_success: "§6§l[CB] §fSub§6{0}§a added"
+      del_sub_slot_success: "§6§l[CB] §fSub§6{0}§a removed"
+      del_custom_success: "§6§l[CB] §fCustom§6{0}§a deleted"
+      list:
+        title: §d【Custom Backups】
+        slot: '- {0} #sc={1} custom show {0}<>st=View#§6[C] #sc={1} custom save {0}<>st=Save#§a[▷] #sc={1} custom del {0}<>st=Delete#§c[x] ##Subs: {2}'
+        last_page: "#st=Page {0}, go to {1}<>sc={2} custom list {1}#§b[Prev]"
+        next_page: "#st=Page {0}, go to {1}<>sc={2} custom list {1}#§d[Next]"
+
+      show:
+        title: §d【Custom Info】
+        name: "- Name: §6{}"
+        parent: "- Parent: §6{}"
+        user_created: "- Creator: §3{}"
+        time_created: "- Created: §b{}"
+        command_created: "- Command: §a{}"
+        sub_title: "┌─ Sub-slots:"
+        end_sub_slot: '└─ [Sub§6{1}§f] #sc={2} custom show {0} {1}<>st=View#§6[C] #sc={2} custom del {0} {1}<>st=Delete#§c[x] ##Comment: {3}'
+        sub_slot: '├─ [Sub§6{1}§f] #sc={2} custom show {0} {1}<>st=View#§6[C] #sc={2} custom del {0} {1}<>st=Delete#§c[x] ##Comment: {3}'
+        last_page: "#st=Page {0}, go to {1}<>sc={3} custom show {2} page {1}#§b[Prev]"
+        next_page: "#st=Page {0}, go to {1}<>sc={3} custom show {2} page {1}#§d[Next]"
+
+    abort: Nothing to abort
+    confirm: Nothing to confirm
