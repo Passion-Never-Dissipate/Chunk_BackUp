@@ -446,7 +446,10 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >        "abort": 1,
 >        "reload": 2,
 >        "force_reload": 3,
->        "list": 0
+>        "list": 0,
+>        "show": 1,
+>        "set": 2,
+>        "custom": 1
 >    }
 >```
 
