@@ -131,6 +131,8 @@ def check_backup_state(func):
         except BackupError as error:
             server_data = None
             region_obj = None
+            if type(error).__name__ in ("StaticMore", "DynamicMore"):
+                source.get_server().execute(data_getter["auto_save_on"])
             source.reply(error.args[0])
 
         except BackError as error:
@@ -527,7 +529,7 @@ def cb_pos_make(src: InfoCommandSource, dic: dict):
     region_obj.src = src
     region_obj.cfg = cfg
     region_obj.dimension.append(dimension_info[str(dic["dimension_int"])]["dimension"])  # 此处暂时这样写，后续必须改进
-    region_obj.world_name.apeend(dimension_info[str(dic["dimension_int"])]["world_name"])
+    region_obj.world_name.append(dimension_info[str(dic["dimension_int"])]["world_name"])
     region_obj.region_folder.append(dimension_info[str(dic["dimension_int"])]["region_folder"])
     region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
     region_obj.coords.append(selected)
@@ -777,7 +779,7 @@ def cb_set_config(source: InfoCommandSource, dic: dict):
             new_dict["max_chunk_length"] = dic["length"]
 
         save_json_file(config_path, new_dict)
-        source.get_server().reload_plugin("region_backup")
+        source.get_server().reload_plugin("chunk_backup")
         source.reply(tr("prompt_msg.set.done"))
 
     except Exception:
@@ -789,6 +791,7 @@ def cb_show(src: InfoCommandSource, dic: dict):
     args = src.get_info().content.split()
     is_overwrite = (args[-1] == "overwrite")
     backup_path = cfg.backup_path if is_overwrite else region.get_backup_path(cfg, src.get_info().content)
+    dynamic = (backup_path == cfg.backup_path)
     name = "overwrite" if is_overwrite else f"slot{dic.get('slot', 1)}"
     info_path = os.path.join(backup_path, name, "info.json")
     if not os.path.exists(info_path):
@@ -885,24 +888,24 @@ def cb_show(src: InfoCommandSource, dic: dict):
                         key, value = slots[index], sub_slots[slots[index]]
                         if index < num - 1:
                             msg_components.append(
-                                tr("prompt_msg.show.sub_slot", dic.get('slot', 1), key, Prefix, value["comment"]))
+                                tr("prompt_msg.show.sub_slot", dic.get('slot', 1), key, Prefix, value["comment"], " -s" if not dynamic else ""))
                         else:
                             msg_components.append(
-                                tr("prompt_msg.show.end_sub_slot", dic.get('slot', 1), key, Prefix, value["comment"]))
+                                tr("prompt_msg.show.end_sub_slot", dic.get('slot', 1), key, Prefix, value["comment"], " -s" if not dynamic else ""))
 
                     # noinspection PyUnboundLocalVariable
                     if lp:
                         # noinspection PyUnboundLocalVariable
-                        msg = tr("prompt_msg.show.last_page", p, lp, dic.get('slot', 1), Prefix)
+                        msg = tr("prompt_msg.show.last_page", p, lp, dic.get('slot', 1), Prefix, " -s" if not dynamic else "")
                         # noinspection PyUnboundLocalVariable
                         if np:
                             # noinspection PyUnboundLocalVariable
-                            msg = msg + "  " + tr("prompt_msg.show.next_page", p, np, dic.get('slot', 1), Prefix)
+                            msg = msg + "  " + tr("prompt_msg.show.next_page", p, np, dic.get('slot', 1), Prefix, " -s" if not dynamic else "")
                         msg = msg + "  " + tr("prompt_msg.list.page", end, num)
                         msg_components.append(msg)
                     elif np:
                         # noinspection PyUnboundLocalVariable
-                        msg = tr("prompt_msg.show.next_page", p, np, dic.get('slot', 1), Prefix)
+                        msg = tr("prompt_msg.show.next_page", p, np, dic.get('slot', 1), Prefix, " -s" if not dynamic else "")
                         msg = msg + "  " + tr("prompt_msg.list.page", end, num)
                         msg_components.append(msg)
 
@@ -1081,11 +1084,12 @@ def on_info(server: PluginServerInterface, info: Info):
 
 
 def on_load(server: PluginServerInterface, old):
-    global cfg, dimension_info, Prefix, server_data, region_obj, data_getter
+    global cfg, dimension_info, Prefix, server_data, region_obj, custom_dict, data_getter
 
     if old:
         server_data = old.server_data
         region_obj = old.region_obj
+        custom_dict = old.custom_dict
 
     if not os.path.exists(os.path.join(server.get_data_folder(), config_name)):
         server.save_config_simple(cb_config.get_default(), config_name)

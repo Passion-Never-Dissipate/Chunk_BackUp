@@ -117,6 +117,9 @@ class Region:
                 target = os.path.join(self.backup_path, self.slot, world_name, folder)
                 tasks.append((source, target))
 
+        else:
+            self.dimension = [self.cfg.dimension_info[d]["dimension"] for d in self.dimension]
+
         # 使用线程池并行处理
         with ThreadPoolExecutor(self.cfg.max_workers) as executor:
             futures = []
@@ -160,8 +163,7 @@ class Region:
             os.makedirs(overwrite_folder, exist_ok=True)
 
         backup_path = self.backup_path
-        max_workers = 4  # 根据CPU核心数调整
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=self.cfg.max_workers) as executor:
             futures = []
 
             for dimension in self.dimension:
@@ -299,7 +301,6 @@ class Region:
         self._clear_temp(backup_path, temp_list)
 
         os.makedirs(os.path.join(backup_path, "slot1"), exist_ok=True)
-        return True
 
     def save_info_file(self, src: InfoCommandSource = None, comment=None):
         info_path = os.path.join(self.backup_path, self.slot, "info.json")
@@ -525,8 +526,9 @@ class ChunkSelector:
     def combine_and_group(cls, selectors):
         """合并多个选区并生成区域分组结果"""
         # 验证输入类型并收集所有区块坐标
+        """print(selectors)
         if not all(isinstance(s, ChunkSelector) for s in selectors):
-            raise TypeError("所有参数必须是ChunkSelector实例")
+            raise TypeError("所有参数必须是ChunkSelector实例")"""
 
         combined_chunks = set()
         for selector in selectors:

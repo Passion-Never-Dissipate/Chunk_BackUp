@@ -34,7 +34,6 @@ class sub_slot_info(Serializable):
     user_created: str = ""
     chunk_top_left_pos: list = []
     chunk_bottom_right_pos: list = []
-    """backup_range: str = """""
     command: str = ""
     comment: str = ""
     version_created: str = "1.3.0"
