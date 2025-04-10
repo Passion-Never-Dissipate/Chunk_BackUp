@@ -101,7 +101,7 @@ class Region:
                     future.result()
 
                 except Exception:
-                    ServerInterface.get_instance().logger.error(tr("unknown_error", traceback.format_exc()))
+                    ServerInterface.get_instance().broadcast(tr("unknown_error", traceback.format_exc()))
 
     def _parallel_copy_directories(self):
         """多线程处理目录复制"""
@@ -139,7 +139,7 @@ class Region:
                     future.result()
 
                 except Exception:
-                    ServerInterface.get_instance().logger.error(tr("unknown_error", traceback.format_exc()))
+                    ServerInterface.get_instance().broadcast(tr("unknown_error", traceback.format_exc()))
 
     @staticmethod
     def _safe_copytree(source, target, extensions):
