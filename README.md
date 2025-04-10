@@ -301,7 +301,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
 `!!cb custom save -s <自定义备份名>` 参数同上,但保存为静态备份(即永久备份)
 
-`!!cb custom show` <自定义备份名> page <页数>` 分页查看自定义备份的子槽位列表
+`!!cb custom show <自定义备份名> page <页数>` 分页查看自定义备份的子槽位列表
 
 `!!cb custom show <自定义备份名> <子槽位>` 查看自定义备份的指定子槽位信息
 
