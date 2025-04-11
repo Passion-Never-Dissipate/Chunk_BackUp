@@ -14,7 +14,7 @@ chunk_backup:
         #sc={0} dmake 0,-1 注释<>st=点击查看用法#§7{0} dmake §6<维度:0主世界,-1地狱,1末地> §e[<注释>] §f备份给定维度的所有区域,维度间用§6,§f做区分/§a例:0 或 0,-1
         #sc={0} pmake 0 0 -100 -100 in 0 注释<>st=点击查看用法#§7{0} pmake §6<x1坐标> <z1坐标> <x2坐标> <z2坐标> §7in §6<维度> §e[<注释>] §f给定两个坐标点,备份以两坐标点对应的区块坐标为顶点形成的区块范围
         #sc={0} custom create<>st=点击运行指令#§7{0} custom create §6<自定义备份名> §f创建一个自定义备份对象
-        #sc={0} custom list<>st=点击查看用法#§7{0} custom list §e[<页数>] §f列出所有自定义备份对象
+        #sc={0} custom list<>st=点击查看用法#§7{0} custom list §f列出所有自定义备份对象
         #sc={0} custom make <custom_name> 0 注释<>st=点击查看用法#§7{0} custom make §6<自定义备份名> <半径> §e[<注释>] §f为自定义备份添加一个中心点+半径子备份
         #sc={0} custom pmake <custom_name> 0 0 100 100 in 0 注释<>st=点击查看用法#§7{0} custom pmake §6<自定义备份名> <x1> <z1> <x2> <z2> §7in §6<维度> §e[<注释>] §f为自定义备份添加一个坐标范围子备份
         #sc={0} custom save <custom_name><>st=点击查看用法#§7{0} custom save §6<自定义备份名> §f备份该自定义备份对象
@@ -64,7 +64,7 @@ chunk_backup:
         #sc={0} back <slot> 1,2,3<>st=点击查看用法#§7{0} back §6<槽位> §e<子槽位组> §f回档自定义备份对象的指定子槽位组,例: 1,2,3
         #sc={0} back -s <slot> 1,2,3<>st=点击查看用法#§7{0} back §b-s §6<槽位> §e<子槽位组> §f参数同上,但操作对象为§c静态备份§f(即§a永久备份§f)
         #sc={0} custom create <custom_name><>st=点击查看用法#§7{0} custom create §6<自定义备份名> §f创建一个自定义备份对象
-        #sc={0} custom list<>st=点击查看用法#§7{0} custom list §e[<页数>] §f列出所有自定义备份对象
+        #sc={0} custom list<>st=点击查看用法#§7{0} custom list §f列出所有自定义备份对象
         #sc={0} custom save <custom_name><>st=点击查看用法#§7{0} custom save §6<自定义备份名> §f备份该自定义备份对象
         #sc={0} custom save -s <custom_name><>st=点击查看用法#§7{0} custom save §b-s §f参数同上,但保存为§c静态备份§f(即§a永久备份§f)
         #sc={0} custom show <custom_name> page <page><>st=点击查看用法#§7{0} custom show §6<自定义备份名> §7page §6<页数> §f分页查看自定义备份的子槽位列表
@@ -142,7 +142,6 @@ chunk_backup:
       lack_info_file: "§6§l[CB] §f该槽位无§cinfo.json§f文件或槽位不存在,无法回档!"
       lack_region_file: "§6§l[CB] §c该槽位内无区域文件或区块文件,无法回档!"
       timeout: "§6§l[CB] §c长时间未操作,已取消本次回档"
-      server_error: "[Chunk BackUp] 服务端关闭异常,回档终止"
 
     list:
       empty_slot: "§6§l[CB] §f没有槽位存在"
