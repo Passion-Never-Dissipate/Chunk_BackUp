@@ -5,7 +5,7 @@ from os import DirEntry
 from mcdreforged.api.types import ServerInterface
 from collections import defaultdict
 from os.path import splitext, join, relpath, abspath, isdir, isfile
-from typing import Dict, List, Optional, Tuple, Union, Set
+from typing import Dict, Optional, Union, Set, Generator
 from chunk_backup.config import cb_config as config
 
 
@@ -55,13 +55,13 @@ class DictReindexer:
     def reindex_keys(self):
         """将字典键重排序为连续整数序列"""
         values = list(self.data.values())
-        self.data = {i+1: values[i] for i in range(len(values))}
+        self.data = {i + 1: values[i] for i in range(len(values))}
         return self.data
 
     def is_ordered_correctly(self):
         """检查是否符合 {1:v1, 2:v2...} 的键规律"""
         current_keys = list(self.data.keys())
-        expected_keys = list(range(1, len(self.data)+1))
+        expected_keys = list(range(1, len(self.data) + 1))
         return current_keys == expected_keys
 
     def insert_value(self, new_value):
@@ -76,18 +76,15 @@ class DictReindexer:
         return self.data.copy()
 
 
-class FileStatsAnalyzer:
+class LazyFileAnalyzer:
     def __init__(self, target_dir: str):
         """
-        文件统计分析器
+        惰性文件分析器
 
         :param target_dir: 要分析的目录路径
         """
         self.target_dir = abspath(target_dir)
         self._validate_directory()
-        self.ext_stats: Dict[str, Dict] = {}
-        self.all_files_stats: Dict[str, int] = {}
-        self.total_size_bytes = 0
 
     def _validate_directory(self) -> None:
         """验证目标目录是否存在且可访问"""
@@ -96,132 +93,134 @@ class FileStatsAnalyzer:
         if not os.access(self.target_dir, os.R_OK):
             raise PermissionError(f"无读取权限: {self.target_dir}")
 
-    def _get_relative_path(self, absolute_path: str) -> str:
-        """将绝对路径转换为相对于目标目录的相对路径"""
-        return relpath(absolute_path, self.target_dir)
-
-    def _collect_file_paths(self, include_subdirs: bool) -> List[str]:
-        file_paths = []  # 初始化列表
+    def _file_generator(self, include_subdirs: bool) -> Generator[str, None, None]:
+        """生成器：按需产生文件路径"""
         if include_subdirs:
             for root, _, files in os.walk(self.target_dir):
                 for file in files:
-                    abs_path = join(root, file)
-                    if isfile(abs_path):
-                        file_paths.append(abs_path)
+                    file_path = join(root, file)
+                    if isfile(file_path):
+                        yield file_path
         else:
-            for entry in os.scandir(self.target_dir):  # type: DirEntry
+            for entry in os.scandir(self.target_dir):
+                entry: DirEntry
                 if entry.is_file():
-                    file_paths.append(entry.path)
-        return file_paths
+                    yield entry.path
 
-    def scan_by_extension(
+    def is_empty(
             self,
-            extensions: List[str],
-            max_workers: Optional[int] = None,
+            extensions: Optional[Set[str]] = None,
             include_subdirs: bool = False
-    ) -> None:
+    ) -> bool:
         """
-        统计指定扩展名的文件（可选包含子文件夹）
+        检查目录是否包含指定类型的文件
 
-        :param extensions: 扩展名列表，如 [".mca", ".dat"]
-        :param max_workers: 线程池最大工作线程数
-        :param include_subdirs: 是否包含子目录文件（默认False）
+        :param extensions: 需要过滤的扩展名集合（None表示所有文件）
+        :param include_subdirs: 是否包含子目录中的文件
+        :return:
+            True - 没有符合条件的文件
+            False - 存在至少一个符合条件的文件
+
+        示例：
+            is_empty()                 # 检查是否没有文件
+            is_empty(extensions={".txt"}) # 检查是否没有txt文件
         """
-        self.ext_stats = defaultdict(lambda: {"files": [], "total_size": 0})
-        target_extensions = set(extensions)
-        file_paths = self._collect_file_paths(include_subdirs)
+        for file_path in self._file_generator(include_subdirs):
+            file_ext = splitext(file_path)[1]
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(
-                    self._process_single_file,
-                    fp,
-                    target_extensions=target_extensions
-                )
-                for fp in file_paths
-            ]
+            # 当不指定扩展名 或 扩展名匹配时返回非空
+            if extensions is None or file_ext in extensions:
+                return False
+        return True
 
-            for future in concurrent.futures.as_completed(futures):
-                ext, rel_path, size = future.result()
-                if ext:
-                    self.ext_stats[ext]["files"].append(rel_path)
-                    self.ext_stats[ext]["total_size"] += size
-
-        # 清理空数据并转换字典类型
-        self.ext_stats = {
-            ext: {"files": data["files"], "total_size": data["total_size"]}
-            for ext, data in self.ext_stats.items()
-            if data["files"]
-        }
-
-    def scan_all_files(
+    def get_extension_sizes(
             self,
-            max_workers: Optional[int] = None,
-            include_subdirs: bool = False
-    ) -> None:
+            extensions: Set[str],
+            include_subdirs: bool = False,
+            use_concurrency: bool = False
+    ) -> Dict[str, int]:
         """
-        统计目录内所有文件（可选包含子文件夹）
+        获取指定扩展名的总大小（不记录文件路径）
 
-        :param max_workers: 线程池最大工作线程数
-        :param include_subdirs: 是否包含子目录文件（默认False）
+        :param extensions: 需要统计的扩展名集合（例如 {".txt", ".jpg"}）
+        :param include_subdirs: 是否包含子目录
+        :param use_concurrency: 是否使用并发处理
+        :return: 扩展名到总大小的映射字典
         """
-        self.all_files_stats.clear()
-        self.total_size_bytes = 0
-        file_paths = self._collect_file_paths(include_subdirs)
+        ext_sizes = {ext: 0 for ext in extensions}
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(
-                    self._process_single_file,
-                    fp,
-                    get_all_files=True
-                )
-                for fp in file_paths
-            ]
-
-            results = [future.result() for future in concurrent.futures.as_completed(futures)]
-
-            for _, rel_path, size in results:
-                if rel_path:
-                    self.all_files_stats[rel_path] = size
-                    self.total_size_bytes += size
-
-    def _process_single_file(
-            self,
-            file_path: str,
-            target_extensions: Optional[Set[str]] = None,
-            get_all_files: bool = False
-    ) -> Tuple[Optional[str], str, int]:
-        """
-        文件处理核心方法
-
-        :return: (扩展名, 相对路径, 文件大小)
-                 当get_all_files=True时，扩展名返回None
-                 当文件无效时返回(None, "", 0)
-        """
-        try:
+        def process_file(file_path: str) -> Optional[tuple]:
             if not isfile(file_path):
-                return None, "", 0
+                return None
+            file_ext = splitext(file_path)[1]
+            if file_ext in extensions:
+                try:
+                    return file_ext, os.path.getsize(file_path)
+                except OSError:
+                    pass
+            return None
 
-            rel_path = self._get_relative_path(file_path)
-            size = os.path.getsize(file_path)
+        if use_concurrency:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(process_file, fp)
+                    for fp in self._file_generator(include_subdirs)
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    result = future.result()
+                    if result:
+                        ext, size = result
+                        ext_sizes[ext] += size
+        else:
+            for file_path in self._file_generator(include_subdirs):
+                result = process_file(file_path)
+                if result:
+                    ext, size = result
+                    ext_sizes[ext] += size
 
-            if get_all_files:
-                return None, rel_path, size
+        return {k: v for k, v in ext_sizes.items() if v > 0}
 
-            if target_extensions:
-                file_ext = splitext(file_path)[1]
-                if file_ext in target_extensions:
-                    return file_ext, rel_path, size
+    def get_total_size(
+            self,
+            include_subdirs: bool = False,
+            use_concurrency: bool = False
+    ) -> int:
+        """
+        获取目录总大小
 
-            return None, "", 0
+        :param include_subdirs: 是否包含子目录
+        :param use_concurrency: 是否使用并发处理
+        :return: 总字节数
+        """
+        total_size = 0
 
-        except (OSError, PermissionError):
-            return None, "", 0
+        def process_file(file_path: str) -> Optional[int]:
+            try:
+                return os.path.getsize(file_path) if isfile(file_path) else None
+            except OSError:
+                return None
+
+        if use_concurrency:
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = [
+                    executor.submit(process_file, fp)
+                    for fp in self._file_generator(include_subdirs)
+                ]
+                for future in concurrent.futures.as_completed(futures):
+                    size = future.result()
+                    if size:
+                        total_size += size
+        else:
+            for file_path in self._file_generator(include_subdirs):
+                size = process_file(file_path)
+                if size:
+                    total_size += size
+
+        return total_size
 
     @staticmethod
     def format_size(size_bytes: int) -> str:
-        """将字节数转换为易读格式"""
+        """将字节数转换为易读格式（按需调用）"""
         units = ("B", "KB", "MB", "GB", "TB")
         unit_idx = 0
         while size_bytes >= 1024 and unit_idx < len(units) - 1:
@@ -229,24 +228,45 @@ class FileStatsAnalyzer:
             unit_idx += 1
         return f"{size_bytes:.2f}{units[unit_idx]}"
 
-    def get_ext_report(self) -> Dict[str, Dict[str, Union[List[str], int, str]]]:
-        """生成带格式化大小的扩展名报告"""
-        return {
-            ext: {
-                "files": data["files"],
-                "total_size_bytes": data["total_size"],
-                "total_size_human": self.format_size(data["total_size"])
-            }
-            for ext, data in self.ext_stats.items()
-        }
+    def get_file_list(
+            self,
+            extensions: Optional[Set[str]] = None,
+            include_subdirs: bool = False,
+            include_size: bool = False
+    ) -> Dict[str, Union[Dict[str, int], Set[str]]]:
+        """
+        获取按扩展名分类的文件列表（路径集合或路径-大小字典）
 
-    def get_full_report(self) -> Dict[str, Union[Dict, int, str]]:
-        """生成完整分析报告"""
-        return {
-            "by_extension": self.get_ext_report(),
-            "all_files": {
-                "count": len(self.all_files_stats),
-                "total_size_bytes": self.total_size_bytes,
-                "total_size_human": self.format_size(self.total_size_bytes)
-            }
-        }
+        :param extensions: 过滤扩展名集合（None表示所有文件）
+        :param include_subdirs: 是否包含子目录
+        :param include_size: 是否包含文件大小
+        :return: 按扩展名分组的字典，结构示例：
+            include_size=True → {".pdf": {"documents/report.pdf": 1048576}, ...}
+            include_size=False → {".pdf": {"documents/report.pdf"}, ...}
+        """
+
+        result = defaultdict(set if not include_size else dict)
+        ext_filter = {ext.lower() for ext in extensions} if extensions else None
+
+        for file_path in self._file_generator(include_subdirs):
+            if not isfile(file_path):
+                continue
+
+            rel_path = relpath(file_path, self.target_dir)
+            file_ext = splitext(file_path)[1].lower()
+
+            # 扩展名过滤（统一小写处理）
+            if ext_filter and file_ext not in ext_filter:
+                continue
+
+            # 动态构建数据结构
+            if include_size:
+                try:
+                    size = os.path.getsize(file_path)
+                    result[file_ext][rel_path] = size  # type: ignore
+                except OSError:
+                    pass
+            else:
+                result[file_ext].add(rel_path)  # 使用集合存储路径
+
+        return dict(result)

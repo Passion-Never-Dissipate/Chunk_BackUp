@@ -9,7 +9,7 @@ class cb_info(Serializable):
     backup_dimension: list = []
     comment: str = ""
     command: str = ""
-    version_created: str = "1.3.0"
+    version_created: str = "1.3.3"
     minecraft_version: str = ""
 
 
@@ -21,8 +21,8 @@ class cb_custom_info(Serializable):
     user: str = ""
     backup_type: str = "custom"
     backup_dimension: list = []
-    version_created: str = "1.3.0"
-    version_saved: str = "1.3.0"
+    version_created: str = "1.3.3"
+    version_saved: str = "1.3.3"
     minecraft_version: str = ""
     sub_slot: dict = {}
 
@@ -36,7 +36,7 @@ class sub_slot_info(Serializable):
     chunk_bottom_right_pos: list = []
     command: str = ""
     comment: str = ""
-    version_created: str = "1.3.0"
+    version_created: str = "1.3.3"
 
 
 class cb_config(Serializable):
@@ -102,4 +102,4 @@ class cb_config(Serializable):
     static_slot: int = 50
     max_chunk_length: int = 320
     max_workers: int = 4
-    plugin_version: str = "1.3.0"
+    plugin_version: str = "1.3.3"

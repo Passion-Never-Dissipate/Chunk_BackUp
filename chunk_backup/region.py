@@ -15,7 +15,7 @@ from mcdreforged.api.types import ServerInterface, InfoCommandSource
 from chunk_backup.config import cb_config, cb_info, cb_custom_info, sub_slot_info
 from chunk_backup.chunk import Chunk as chunk
 from chunk_backup.errors import MaxChunkLength, MaxChunkRadius, StaticMore, DynamicMore
-from chunk_backup.tools import tr, FileStatsAnalyzer as analyzer
+from chunk_backup.tools import tr, LazyFileAnalyzer as analyzer
 
 
 def ignore_specific_files(src_dir, extensions):
@@ -53,10 +53,8 @@ class Region:
         self.backup_type: str = "chunk"
         self.backup_path: Optional[str] = None
         self.slot: str = "slot1"
-        self.coords: Optional[list, dict] = []
+        self.coords: Optional[dict] = {}
         self.dimension: Optional[list] = []
-        self.world_name: Optional[list] = []
-        self.region_folder: Optional[list] = []
 
     def copy(self):
         time.sleep(0.1)
@@ -69,14 +67,16 @@ class Region:
 
     def _parallel_export_regions(self):
         """多线程处理区块导出"""
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # 准备任务列表
         tasks = []
-        for world_name, region_folder, coords in zip(self.world_name, self.region_folder, self.coords):
-            for _folder in region_folder:
-                source_dir = os.path.join(self.cfg.server_path, world_name, _folder)
-                target_dir = os.path.join(self.backup_path, self.slot, world_name, _folder)
+        swap_dict = Region.swap_dimension_key(self.cfg.dimension_info)
+        for dimension in self.dimension:
+            world_name = swap_dict[dimension]["world_name"]
+            coords = self.coords[dimension]
+            for folder in swap_dict[dimension]["region_folder"]:
+                source_dir = os.path.join(self.cfg.server_path, world_name, folder)
+                target_dir = os.path.join(self.backup_path, self.slot, world_name, folder)
                 tasks.append((source_dir, target_dir, coords))
 
         # 使用线程池并行处理
@@ -105,7 +105,6 @@ class Region:
 
     def _parallel_copy_directories(self):
         """多线程处理目录复制"""
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # 准备任务列表
         tasks = []
@@ -213,14 +212,12 @@ class Region:
 
     @classmethod
     def _process_chunk(cls, source_dir, target_dir, overwrite_dir=None):
-        ext = [".region", ".mca"]
         region = analyzer(source_dir)
-        region.scan_by_extension(ext)
-        all_ = region.get_ext_report()
+        all_ = region.get_file_list(extensions={".region", ".mca"})
         if overwrite_dir:
             os.makedirs(overwrite_dir, exist_ok=True)
         if ".mca" in all_:
-            for file in all_[".mca"]["files"]:
+            for file in all_[".mca"]:
                 source_file = os.path.join(source_dir, file)
                 target_file = os.path.join(target_dir, file)
 
@@ -234,7 +231,7 @@ class Region:
                 shutil.copy2(source_file, target_file)
 
         if ".region" in all_:
-            for file in all_[".region"]["files"]:
+            for file in all_[".region"]:
                 source_file = os.path.join(source_dir, file)
                 target_file = os.path.join(target_dir, file.replace(".region", ".mca"))
                 overwrite_file = os.path.join(overwrite_dir, file) if overwrite_dir else overwrite_dir
