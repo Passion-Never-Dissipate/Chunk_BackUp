@@ -26,6 +26,7 @@ chunk_backup:
         #sc={0} list 1<>st=点击查看用法#§7{0} list §e[<页数>] §f显示备份槽位列表
         #sc={0} show 1<>st=点击查看用法#§7{0} show §e[<槽位>] §f显示给定槽位的所有信息
         #sc={0} set slot 10<>st=点击查看用法#§7{0} set slot §e<数量> §f修改动态备份槽位最大数量
+        #sc={0} rollback<>st=点击查看用法#§7{0} rollback §f查看上次回档的详细信息
         #sc={0} reload<>st=点击查看用法#§7{0} reload §e重载插件
         #sc={0} force_reload<>st=点击查看用法#§7{0} force_reload §f强行重载插件,用于插件功能无法正常使用
         §bv1.3.0版本添加了自定义备份的功能,详细用法见§a!!cb list
@@ -73,6 +74,7 @@ chunk_backup:
         #sc={0} custom del <custom_name> <sub_slot><>st=点击查看用法#§7{0} custom del §6<自定义备份名> §e<子槽位> §f删除自定义备份对象的指定子槽位
         #sc={0} custom pmake <custom_name> 0 0 100 100 in 0 注释<>st=点击查看用法#§7{0} custom pmake §6<自定义备份名> <x1> <z1> <x2> <z2> §7in §6<维度> §e[<注释>] §f为自定义备份添加一个坐标范围子备份
         #sc={0} custom make <custom_name> 0 注释<>st=点击查看用法#§7{0} custom make §6<自定义备份名> <半径> §e[<注释>] §f为自定义备份添加一个中心点+半径子备份
+        #sc={0} rollback<>st=点击查看用法#§7{0} rollback §f查看上次回档的详细信息
 
   warn:
     region_out_of_range: "区块备份范围内有区块对应的区域文件尚未在世界上生成,请调整备份范围!"
@@ -152,6 +154,7 @@ chunk_backup:
       slot: '#st=备份维度: §a{5} §f备份用户: §b{6} §f备份指令: §6{7}#[槽位§6{0}§f] #sc={8} show{4} {0}<>st=查看槽位§6{0}§f所有信息#§6[C] #sc={8} back{4} {0}<>st=回档至槽位§6{0}#§a[▷] #sc={8} del{4} {0}<>st=删除槽位§6{0}#§c[x] ##§a{1} §f{2} 注释: {3}'
       custom_slot: '#st=备份维度: §a{5} §f备份用户: §b{6} #[槽位§6{0}§f] #sc={7} show{4} {0}<>st=查看槽位§6{0}§f所有信息#§6[C] #sc={7} back{4} {0}<>st=回档至槽位§6{0}#§a[▷] #sc={7} del{4} {0}<>st=删除槽位§6{0}#§c[x] ##§a{1} §f{2} 自定义备份名: {3}'
       empty_size: "[槽位§6{}§f] 空或者缺少§6info.json§f文件"
+      rollback: "上次§6回档§f #sc={4} rollback<>st=查看上次回档所有信息#§6[C] §f结果:{0}§f 用户:§b{1}§f 时间:§6{2}§f 指令:§a{3}"
       last_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} list{2} {1}#§b[上一页]"
       next_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} list{2} {1}#§d[下一页]"
       page: "##§7[§a{0}§7/§e{1}§7]"
@@ -160,8 +163,8 @@ chunk_backup:
     show:
       empty: "§6§l[CB] §f槽位§6{0}§f为空或者缺少§6info.json§f文件"
       not_custom: "§6§l[CB] §f槽位§6{0}§f备份类型不为自定义备份"
-      end_sub_slot: '└─ [子槽位§6{1}§f] #sc={2} show{4} {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} back{4} {0} {1}<>st=回档该子备份对象#§a[▷] ##注释: {3}'
-      sub_slot: '├─ [子槽位§6{1}§f] #sc={2} show{4} {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} back{4} {0} {1}<>st=回档该子备份对象#§a[▷] ##注释: {3}'
+      end_sub_slot: '└─ [子槽位§6{1}§f] #sc={2} show{4} {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} back{4} {0} {1}<>st=回档该子备份对象#§a[▷] §f注释: {3}'
+      sub_slot: '├─ [子槽位§6{1}§f] #sc={2} show{4} {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} back{4} {0} {1}<>st=回档该子备份对象#§a[▷] §f注释: {3}'
       last_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} show{4} {2} page {1}#§b[上一页]"
       next_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} show{4} {2} page {1}#§d[下一页]"
       title: §d【槽位信息】
@@ -181,6 +184,24 @@ chunk_backup:
       version_created: "- 创建版本: §e{}"
       version_saved: "- 备份版本: §e{}"
       minecraft_version: "- 备份Minecraft版本: §e{}"
+
+    rollback:
+      no_info: "§c无上次回档信息"
+      success: "§a成功"
+      fail: "§c失败"
+      dynamic: 动态备份
+      static: 静态备份
+      title: §d【上次回档信息】
+      default_fail: "服务端未正常关闭"
+      time_rollback: "- 回档日期: §b{}"
+      time_backup: "- 备份日期: §b{}"
+      user_rollback: "- 回档用户: §3{}"
+      slot_rollback: "- 回档槽位: §6{}"
+      backup_type: "- 备份类型: §9{}"
+      slot_type: "- 槽位类型: §9{}"
+      command_rollback: "- 回档指令: §a{}"
+      is_success: "- 回档结果: {}"
+      fail_info: "- 失败信息: §c{}"
 
     comment:
       empty_comment: §7空
@@ -223,8 +244,8 @@ chunk_backup:
         time_created: "- 创建时间: §b{}"
         command_created: "- 创建指令: §a{}"
         sub_title: "┌─ 子备份列表:"
-        end_sub_slot: '└─ [子槽位§6{1}§f] #sc={2} custom show {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} custom del {0} {1}<>st=删除该子备份对象#§c[x] ##注释: {3}'
-        sub_slot: '├─ [子槽位§6{1}§f] #sc={2} custom show {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} custom del {0} {1}<>st=删除该子备份对象#§c[x] ##注释: {3}'
+        end_sub_slot: '└─ [子槽位§6{1}§f] #sc={2} custom show {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} custom del {0} {1}<>st=删除该子备份对象#§c[x] §f注释: {3}'
+        sub_slot: '├─ [子槽位§6{1}§f] #sc={2} custom show {0} {1}<>st=查看该子备份的详细信息#§6[C] #sc={2} custom del {0} {1}<>st=删除该子备份对象#§c[x] §f注释: {3}'
         last_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} custom show {2} page {1}#§b[上一页]"
         next_page: "#st=当前为第{0}页,点击转到第{1}页<>sc={3} custom show {2} page {1}#§d[下一页]"
 

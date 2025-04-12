@@ -1,6 +1,6 @@
 {
 	"id": "chunk_backup",
-	"version": "1.3.3",
+	"version": "1.3.4",
 	"name": "Chunk BackUp",
 	"description": {
 		"en_us": "A MCDR plugin that backs up or restores by chunk",
@@ -13,7 +13,7 @@
 	"dependencies": {
 		"mcdreforged": ">=2.7.0"
 	},
-	"archive_name": "Chunk BackUp-v{version}",
+	"archive_name": "Chunk_BackUp-v{version}",
 	"resources": [
 		"LICENSE",
 		"lang"

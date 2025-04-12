@@ -304,7 +304,7 @@ class Region:
         if not src: info_path = os.path.join(self.cfg.backup_path, self.cfg.overwrite_backup_folder, "info.json")
         info = cb_info.get_default().serialize()
         info["time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        info["command"] = src.get_info().content if src and src.get_info().is_player else tr("prompt_msg.comment.nocommand")
+        info["command"] = src.get_info().content if src else tr("prompt_msg.comment.nocommand")
         info["user"] = src.get_info().player if src and src.get_info().is_player else tr("prompt_msg.comment.console")
         info["backup_dimension"] = self.dimension
         info["comment"] = comment if comment else tr("prompt_msg.comment.overwrite_comment")

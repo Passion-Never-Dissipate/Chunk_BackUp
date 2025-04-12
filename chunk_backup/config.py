@@ -2,43 +2,6 @@ from mcdreforged.api.utils.serializer import Serializable
 from typing import Dict
 
 
-class cb_info(Serializable):
-    time: str = ""
-    backup_type: str = ""
-    user: str = ""
-    backup_dimension: list = []
-    comment: str = ""
-    command: str = ""
-    version_created: str = "1.3.3"
-    minecraft_version: str = ""
-
-
-class cb_custom_info(Serializable):
-    time_created: str = ""
-    time: str = ""
-    custom_name: str = ""
-    user_created: str = ""
-    user: str = ""
-    backup_type: str = "custom"
-    backup_dimension: list = []
-    version_created: str = "1.3.3"
-    version_saved: str = "1.3.3"
-    minecraft_version: str = ""
-    sub_slot: dict = {}
-
-
-class sub_slot_info(Serializable):
-    time_created: str = ""
-    backup_type: str = ""
-    backup_dimension: str = ""
-    user_created: str = ""
-    chunk_top_left_pos: list = []
-    chunk_bottom_right_pos: list = []
-    command: str = ""
-    comment: str = ""
-    version_created: str = "1.3.3"
-
-
 class cb_config(Serializable):
     server_path: str = "./server"
     backup_path: str = "./cb_multi"
@@ -96,10 +59,60 @@ class cb_config(Serializable):
         "list": 0,
         "show": 1,
         "set": 2,
-        "custom": 1
+        "custom": 1,
+        "rollback": 1
     }
     slot: int = 10
     static_slot: int = 50
     max_chunk_length: int = 320
     max_workers: int = 4
-    plugin_version: str = "1.3.3"
+    plugin_version: str = "1.3.4"
+
+
+class cb_info(Serializable):
+    time: str = ""
+    backup_type: str = ""
+    user: str = ""
+    backup_dimension: list = []
+    comment: str = ""
+    command: str = ""
+    version_created: str = cb_config.plugin_version
+    minecraft_version: str = ""
+
+
+class cb_custom_info(Serializable):
+    time_created: str = ""
+    time: str = ""
+    custom_name: str = ""
+    user_created: str = ""
+    user: str = ""
+    backup_type: str = "custom"
+    backup_dimension: list = []
+    version_created: str = cb_config.plugin_version
+    version_saved: str = cb_config.plugin_version
+    minecraft_version: str = ""
+    sub_slot: dict = {}
+
+
+class sub_slot_info(Serializable):
+    time_created: str = ""
+    backup_type: str = ""
+    backup_dimension: str = ""
+    user_created: str = ""
+    chunk_top_left_pos: list = []
+    chunk_bottom_right_pos: list = []
+    command: str = ""
+    comment: str = ""
+    version_created: str = cb_config.plugin_version
+
+
+class rollback_info(Serializable):
+    time_rollback: str = ""
+    time_backup: str = ""
+    user_rollback: str = ""
+    slot_rollback: str = ""
+    backup_type = ""
+    is_static: bool = False
+    command_rollback: str = ""
+    success: bool = False
+    fail_info: str = ""

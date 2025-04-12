@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import re
 import shutil
@@ -10,7 +11,7 @@ from typing import Optional
 from mcdreforged.api.types import Info, InfoCommandSource, CommandSource, ServerInterface, PluginServerInterface
 from mcdreforged.api.command import SimpleCommandBuilder, Requirements, Number, Integer, GreedyText, Text
 from mcdreforged.api.decorator import new_thread
-from chunk_backup.config import cb_info, cb_config, cb_custom_info, sub_slot_info
+from chunk_backup.config import cb_info, cb_config, cb_custom_info, sub_slot_info, rollback_info
 from chunk_backup.tools import tr, update_config, save_json_file, safe_load_json, DictReindexer as sort_dict, \
     LazyFileAnalyzer as analyzer
 from chunk_backup.region import Region as region
@@ -25,7 +26,7 @@ data_getter = cb_config.data_getter
 region_obj: Optional[region] = None
 custom_dict: dict = {}
 config_name = "chunk_backup.json"
-rollback_info = "rollback_info.json"
+rollback_file: Optional[str] = None
 time_out = 10
 countdown = 10
 
@@ -581,6 +582,7 @@ def cb_back(src: InfoCommandSource, dic: dict):
     global region_obj
     region.back_state = 1
 
+    rollback_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     region_obj = region()
     region_obj.cfg = cfg
     region_obj.backup_path = region.get_backup_path(cfg, src.get_info().content)
@@ -694,10 +696,25 @@ def cb_back(src: InfoCommandSource, dic: dict):
             raise BackAbort
         src.get_server().broadcast(
             Message.get_json_str(
-                tr("prompt_msg.back.count", f"{countdown - t}", Prefix, region_obj.slot.replace("slot", "", 1))
+                tr("prompt_msg.back.count", countdown - t, Prefix, region_obj.slot.replace("slot", "", 1))
             )
         )
     region_obj.server_stop = True
+
+    if not os.path.exists(rollback_file):
+        os.makedirs(os.path.dirname(rollback_file), exist_ok=True)
+
+    with open(rollback_file, "w", encoding="utf-8") as fp:
+        content = rollback_info.get_default().serialize()
+        content["time_rollback"] = rollback_time
+        content["time_backup"] = info["time"]
+        content["user_rollback"] = src.get_info().player if src.is_player else tr("prompt_msg.comment.console")
+        content["slot_rollback"] = region_obj.slot
+        content["backup_type"] = info["backup_type"]
+        content["is_static"] = region_obj.backup_path == cfg.static_backup_path
+        content["command_rollback"] = src.get_info().content
+        content["fail_info"] = tr("prompt_msg.rollback.default_fail")
+        json.dump({content["time_rollback"]: content}, fp, indent=4, ensure_ascii=False)
 
     src.get_server().stop()
 
@@ -714,10 +731,28 @@ def on_server_stop(server: PluginServerInterface, server_return_code: int):
             region_obj.back()  # type: ignore
             if region_obj.slot != region_obj.cfg.overwrite_backup_folder:  # type: ignore
                 region_obj.save_info_file()  # type: ignore
+            try:
+                if os.path.exists(rollback_file):
+                    info = safe_load_json(rollback_file)
+                    key = list(info.keys())[0]
+                    info[key]["success"] = True
+                    info[key]["fail_info"] = None
+                    save_json_file(rollback_file, info)
+            except Exception:
+                pass
             server.start()
 
     except Exception:
-        server.logger.error(tr("error.unknown_error", traceback.format_exc()))
+        fail_info = traceback.format_exc()
+        server.logger.error(tr("error.unknown_error", fail_info))
+        try:
+            if os.path.exists(rollback_file):
+                info = safe_load_json(rollback_file)
+                key = list(info.keys())[0]
+                info[key]["fail_info"] = fail_info
+                save_json_file(rollback_file, info)
+        except Exception:
+            pass
         server.start()
 
     finally:
@@ -946,6 +981,35 @@ def cb_show(src: InfoCommandSource, dic: dict):
         src.reply(tr("list.info_broken", dic.get('slot', 1)))
 
 
+def cb_rollback(source: InfoCommandSource):
+    if not os.path.exists(rollback_file):
+        source.reply(tr("prompt_msg.rollback.no_info"))
+        return
+    try:
+        info = safe_load_json(rollback_file)
+        key = list(info.keys())[0]
+        msg_components = [
+            tr("prompt_msg.rollback.title"),
+            tr("prompt_msg.rollback.time_rollback", info[key]["time_rollback"]),
+            tr("prompt_msg.rollback.time_backup", info[key]["time_backup"]),
+            tr("prompt_msg.rollback.user_rollback", info[key]["user_rollback"]),
+            tr("prompt_msg.rollback.slot_rollback", info[key]["slot_rollback"]),
+            tr("prompt_msg.rollback.backup_type", info[key]["backup_type"]),
+            tr("prompt_msg.rollback.slot_type", tr("prompt_msg.rollback.static") if info[key]["is_static"] else tr("prompt_msg.rollback.dynamic")),
+            tr("prompt_msg.rollback.command_rollback", info[key]["command_rollback"]),
+            tr("prompt_msg.rollback.is_success", tr("prompt_msg.rollback.success") if info[key]["success"] else tr("prompt_msg.rollback.fail")),
+        ]
+
+        if not info[key]["success"]:
+            msg_components.append(tr("prompt_msg.rollback.fail_info", info[key]["fail_info"]))
+
+    except Exception:
+        source.reply(tr("error.unknown_error", traceback.format_exc()))
+        return
+
+    source.reply(Message.get_json_str("\n".join(msg_components)))
+
+
 @new_thread("cb_list")
 def cb_list(source: InfoCommandSource, dic: dict):
     backup_path = region.get_backup_path(cfg, source.get_info().content)
@@ -974,7 +1038,6 @@ def cb_list(source: InfoCommandSource, dic: dict):
         if os.path.exists(path):
             try:
                 info = safe_load_json(path)
-
                 time_saved = info["time"]
                 dimension = ",".join(info['backup_dimension'])
                 user_saved = info["user"]
@@ -1008,6 +1071,22 @@ def cb_list(source: InfoCommandSource, dic: dict):
         else:
             msg = tr("prompt_msg.list.empty_size", i)
             msg_list.append(msg)
+
+    try:
+        if os.path.exists(rollback_file):
+            info = safe_load_json(rollback_file)
+            key = list(info.keys())[0]
+            msg = tr("prompt_msg.list.rollback",
+                     tr("prompt_msg.rollback.success") if info[key]["success"] else tr("prompt_msg.rollback.fail"),
+                     info[key]["user_rollback"],
+                     info[key]["time_rollback"],
+                     info[key]["command_rollback"],
+                     Prefix
+                     )
+            msg_list.append(msg)
+
+    except Exception:
+        pass
 
     if lp:
         msg = tr("prompt_msg.list.last_page", p, lp, " -s" if not dynamic else "", Prefix)
@@ -1084,14 +1163,16 @@ def on_info(server: PluginServerInterface, info: Info):
 
 
 def on_load(server: PluginServerInterface, old):
-    global cfg, dimension_info, Prefix, server_data, region_obj, custom_dict, data_getter
+    global cfg, dimension_info, Prefix, server_data, region_obj, custom_dict, data_getter, rollback_file
 
     if old:
         server_data = getattr(old, "server_data", None)
         region_obj = getattr(old, "region_obj", None)
         custom_dict = getattr(old, "custom_dict", {})
 
-    if not os.path.exists(os.path.join(server.get_data_folder(), config_name)):
+    config_folder = server.get_data_folder()
+
+    if not os.path.exists(os.path.join(config_folder, config_name)):
         server.save_config_simple(cb_config.get_default(), config_name)
     else:
         old_dict = server.load_config_simple(config_name, target_class=cb_config, echo_in_console=False).serialize()
@@ -1099,14 +1180,14 @@ def on_load(server: PluginServerInterface, old):
         if new_dict["plugin_version"] != cfg.plugin_version:
             new_dict["plugin_version"] = cfg.plugin_version
 
-        save_json_file(os.path.join(server.get_data_folder(), config_name), new_dict)
+        save_json_file(os.path.join(config_folder, config_name), new_dict)
 
     cfg = server.load_config_simple(config_name, target_class=cb_config)
 
     Prefix = cfg.prefix
     dimension_info = cfg.dimension_info
     data_getter = cfg.data_getter
-
+    rollback_file = os.path.join(config_folder, "rollback_info.json")
     server.register_help_message(Prefix, tr("introduction.register_message"))
     lvl = cfg.minimum_permission_level
     require = Requirements()
@@ -1168,6 +1249,7 @@ def on_load(server: PluginServerInterface, old):
     builder.command(f"{Prefix} show -s <slot> page <page>", cb_show)
     builder.command(f"{Prefix} show -s <slot> <sub_slot>", cb_show)
     builder.command(f"{Prefix} show overwrite", cb_show)
+    builder.command(f"{Prefix} rollback", cb_rollback)
     builder.command(f"{Prefix} reload", cb_reload)
     builder.command(f"{Prefix} force_reload", cb_force_reload)
 

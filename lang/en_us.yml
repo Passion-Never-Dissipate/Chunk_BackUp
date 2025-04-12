@@ -26,6 +26,7 @@ chunk_backup:
         #sc={0} list 1<>st=Click to view usage#§7{0} list §e[<page>] §fShow backup slots
         #sc={0} show 1<>st=Click to view usage#§7{0} show §e[<slot>] §fView detailed slot info
         #sc={0} set slot 10<>st=Click to view usage#§7{0} set slot §e<num> §fModify max dynamic slots
+        #sc={0} rollback<>st=Click to view usage#§7{0} rollback §fto view details of the last rollback
         #sc={0} reload<>st=Click to view usage#§7{0} reload §eReload plugin
         #sc={0} force_reload<>st=Click to view usage#§7{0} force_reload §fForce reload plugin
         §bv1.3.0 added custom backups. Details via §a!!cb list
@@ -73,6 +74,7 @@ chunk_backup:
         #sc={0} custom del <name> <sub><>st=Click to view#§7{0} custom del §6<name> §e<sub> §fDelete sub
         #sc={0} custom pmake <name> 0 0 100 100 in 0 comment<>st=Click to view#§7{0} custom pmake §6<name> <x1> <z1> <x2> <z2> §7in §6<dim> §e[<comment>] §fAdd coord sub
         #sc={0} custom make <name> 0 comment<>st=Click to view#§7{0} custom make §6<name> <radius> §e[<comment>] §fAdd radius sub
+        #sc={0} rollback<>st=Click to view usage#§7{0} rollback §fto view details of the last rollback
 
   warn:
     region_out_of_range: "Some chunks in backup range haven't generated! Adjust range."
@@ -151,6 +153,7 @@ chunk_backup:
       static: §d【Static Backups】
       slot: '#st=Dim: §a{5} User: §b{6} Cmd: §6{7}#[Slot§6{0}§f] #sc={8} show{4} {0}<>st=View#§6[C] #sc={8} back{4} {0}<>st=Restore#§a[▷] #sc={8} del{4} {0}<>st=Delete#§c[x] ##§a{1} §f{2} Comment: {3}'
       custom_slot: '#st=Dim: §a{5} User: §b{6} #[Slot§6{0}§f] #sc={7} show{4} {0}<>st=View#§6[C] #sc={7} back{4} {0}<>st=Restore#§a[▷] #sc={7} del{4} {0}<>st=Delete#§c[x] ##§a{1} §f{2} Custom: {3}'
+      rollback: "Last §6rollback§f #sc={4} rollback<>st=View last rollback info#§6[C] §fResult:{0}§f User:§b{1}§f Time:§6{2}§f Command:§a{3}"
       empty_size: "[Slot§6{}§f] Empty/missing §6info.json§f"
       last_page: "#st=Page {0}, go to {1}<>sc={3} list{2} {1}#§b[Prev]"
       next_page: "#st=Page {0}, go to {1}<>sc={3} list{2} {1}#§d[Next]"
@@ -181,6 +184,24 @@ chunk_backup:
       version_created: "- Created Version: §e{}"
       version_saved: "- Backup Version: §e{}"
       minecraft_version: "- MC Version: §e{}"
+
+    rollback:
+      no_info: "§cNo recent rollback info"
+      success: "§aSuccess"
+      fail: "§cFailed"
+      dynamic: Dynamic Backup
+      static: Static Backup
+      title: §d【Last Rollback Info】
+      default_fail: "Server shutdown abnormally"
+      time_rollback: "- Rollback Time: §b{}"
+      time_backup: "- Backup Time: §b{}"
+      user_rollback: "- Rollback User: §3{}"
+      slot_rollback: "- Rollback Slot: §6{}"
+      backup_type: "- Backup Type: §9{}"
+      slot_type: "- Slot Type: §9{}"
+      command_rollback: "- Rollback Command: §a{}"
+      is_success: "- Rollback Result: {}"
+      fail_info: "- Failure Info: §c{}"
 
     comment:
       empty_comment: §7Empty
