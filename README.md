@@ -313,6 +313,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 
 `!!cb custom make <自定义备份名> <半径> [<注释>]` 添加半径模式子备份
 
+`!!cb rollback` 查看上次回档的详细信息
 
 ## 配置文件选项说明
 
@@ -449,7 +450,8 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >        "list": 0,
 >        "show": 1,
 >        "set": 2,
->        "custom": 1
+>        "custom": 1,
+>        "rollback": 1
 >    }
 >```
 
