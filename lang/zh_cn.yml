@@ -29,7 +29,7 @@ chunk_backup:
         #sc={0} rollback<>st=点击查看用法#§7{0} rollback §f查看上次回档的详细信息
         #sc={0} reload<>st=点击查看用法#§7{0} reload §e重载插件
         #sc={0} force_reload<>st=点击查看用法#§7{0} force_reload §f强行重载插件,用于插件功能无法正常使用
-        §bv1.3.0版本添加了自定义备份的功能,详细用法见§a!!cb list
+        §bv1.3.0版本添加了自定义备份的功能,详细用法见§a!!cb help
         #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=点我进入插件仓库了解更多用法#§d想了解更详细的用法?§b点我了解更多§6<——
 
     full_help_message: |
