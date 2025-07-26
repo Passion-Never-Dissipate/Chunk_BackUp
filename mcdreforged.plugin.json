@@ -1,6 +1,6 @@
 {
 	"id": "chunk_backup",
-	"version": "1.3.4",
+	"version": "1.3.5",
 	"name": "Chunk BackUp",
 	"description": {
 		"en_us": "A MCDR plugin that backs up or restores by chunk",
