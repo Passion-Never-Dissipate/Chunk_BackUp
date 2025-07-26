@@ -29,7 +29,7 @@ chunk_backup:
         #sc={0} rollback<>st=Click to view usage#§7{0} rollback §fto view details of the last rollback
         #sc={0} reload<>st=Click to view usage#§7{0} reload §eReload plugin
         #sc={0} force_reload<>st=Click to view usage#§7{0} force_reload §fForce reload plugin
-        §bv1.3.0 added custom backups. Details via §a!!cb list
+        §bv1.3.0 added custom backups. Details via §a!!cb help
         #ou=https://github.com/Passion-Never-Dissipate/Chunk_BackUp<>st=Visit plugin repo#§dFull documentation?§bClick here§6<——
 
     full_help_message: |
