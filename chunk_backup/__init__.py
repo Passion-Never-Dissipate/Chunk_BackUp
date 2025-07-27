@@ -132,7 +132,7 @@ def check_backup_state(func):
         except BackupError as error:
             server_data = None
             region_obj = None
-            if type(error).__name__ in ("StaticMore", "DynamicMore"):
+            if type(error).__name__ in ("StaticMore", "DynamicMore", "MaxChunkLength", "MaxChunkRadius"):
                 source.get_server().execute(data_getter["auto_save_on"])
             source.reply(error.args[0])
 
