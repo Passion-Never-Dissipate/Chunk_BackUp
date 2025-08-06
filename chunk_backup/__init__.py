@@ -8,7 +8,7 @@ import math
 import traceback
 
 from typing import Optional
-from mcdreforged.api.types import Info, InfoCommandSource, CommandSource, ServerInterface, PluginServerInterface
+from mcdreforged.api.types import Info, InfoCommandSource, CommandSource, ServerInterface, PluginServerInterface, Version
 from mcdreforged.api.command import SimpleCommandBuilder, Requirements, Number, Integer, GreedyText, Text
 from mcdreforged.api.decorator import new_thread
 from chunk_backup.config import cb_info, cb_config, cb_custom_info, sub_slot_info, rollback_info
@@ -1177,8 +1177,10 @@ def on_load(server: PluginServerInterface, old):
     else:
         old_dict = server.load_config_simple(config_name, target_class=cb_config, echo_in_console=False).serialize()
         new_dict = update_config(old_dict)
-        if new_dict["plugin_version"] != cfg.plugin_version:
-            new_dict["plugin_version"] = cfg.plugin_version
+        if new_dict["plugin_version"] != cb_config.plugin_version:
+            if Version(new_dict["plugin_version"]) < Version("1.3.7"):
+                new_dict["data_getter"]["get_pos_regex"] = cb_config.data_getter["get_pos_regex"]
+            new_dict["plugin_version"] = cb_config.plugin_version
 
         save_json_file(os.path.join(config_folder, config_name), new_dict)
 

@@ -40,7 +40,7 @@ class cb_config(Serializable):
         "save_worlds": "save-all flush",
         "auto_save_off": "save-off",
         "auto_save_on": "save-on",
-        "get_pos_regex": r'^{name} has the following entity data: \[(?P<x>-?[\d.]+)d, (?P<y>-?[\d.]+)d, (?P<z>-?[\d.]+)d\]$',
+        "get_pos_regex": "^{name} has the following entity data: \\[(?P<x>-?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?)d, (?P<y>-?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?)d, (?P<z>-?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?)d\\]$",
         "get_dimension_regex": r'^{name} has the following entity data: "(?P<dimension>[^"]+)"$',
         "save_off_regex": "Automatic saving is now disabled",
         "saved_world_regex": "Saved the game"
@@ -66,7 +66,7 @@ class cb_config(Serializable):
     static_slot: int = 50
     max_chunk_length: int = 320
     max_workers: int = 4
-    plugin_version: str = "1.3.6"
+    plugin_version: str = "1.3.7"
 
 
 class cb_info(Serializable):
