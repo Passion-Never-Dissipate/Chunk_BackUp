@@ -395,7 +395,7 @@ README部分内容参考了[MCDR文档](https://docs.mcdreforged.com/zh-cn/lates
 >        "save_worlds": "save-all flush",
 >        "auto_save_off": "save-off",
 >        "auto_save_on": "save-on",
->        "get_pos_regex": "^{name} has the following entity data: \\[(?P<x>-?[\\d.]+)d, (?P<y>-?[\\d.]+)d, (?P<z>-?[\\d.]+)d\\]$",
+>        "get_pos_regex": "^{name} has the following entity data: \\[(?P<x>-?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?)d, (?P<y>-?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?)d, (?P<z>-?\\d*\\.?\\d+(?:[eE][-+]?\\d+)?)d\\]$",
 >        "get_dimension_regex": "^{name} has the following entity data: \"(?P<dimension>[^\"]+)\"$",
 >        "save_off_regex": "Automatic saving is now disabled",
 >        "saved_world_regex": "Saved the game"
