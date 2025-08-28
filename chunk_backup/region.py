@@ -101,7 +101,7 @@ class Region:
                     future.result()
 
                 except Exception:
-                    ServerInterface.get_instance().broadcast(tr("unknown_error", traceback.format_exc()))
+                    ServerInterface.get_instance().broadcast(tr("error.unknown_error", traceback.format_exc()))
 
     def _parallel_copy_directories(self):
         """多线程处理目录复制"""
@@ -138,7 +138,7 @@ class Region:
                     future.result()
 
                 except Exception:
-                    ServerInterface.get_instance().broadcast(tr("unknown_error", traceback.format_exc()))
+                    ServerInterface.get_instance().broadcast(tr("error.unknown_error", traceback.format_exc()))
 
     @staticmethod
     def _safe_copytree(source, target, extensions):
@@ -191,7 +191,7 @@ class Region:
                     future.result()
 
                 except Exception:
-                    ServerInterface.get_instance().logger.error(tr("unknown_error", traceback.format_exc()))
+                    ServerInterface.get_instance().logger.error(tr("error.unknown_error", traceback.format_exc()))
 
     def _process_single_region(self, dimension, source_dir, target_dir, overwrite_dir):
         """单个区域文件的处理逻辑（线程安全）"""
