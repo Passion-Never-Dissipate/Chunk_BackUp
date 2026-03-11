@@ -1,7 +1,7 @@
 {
 	"id": "chunk_backup",
-	"version": "1.3.8",
-	"name": "Chunk BackUp",
+	"version": "2.0.0",
+	"name": "Chunk Backup",
 	"description": {
 		"en_us": "A MCDR plugin that backs up or restores by chunk",
 		"zh_cn": "一个以区块为单位备份或回档的MCDR插件"
@@ -11,9 +11,11 @@
 	],
 	"link": "https://github.com/Passion-Never-Dissipate/Chunk_BackUp",
 	"dependencies": {
-		"mcdreforged": ">=2.7.0"
+		"mcdreforged": ">=2.15.1",
+		"candy_tools": ">=1.0.1"
 	},
-	"archive_name": "Chunk_BackUp-v{version}",
+	"entrypoint": "chunk_backup.entry",
+	"archive_name": "Chunk_Backup-v{version}",
 	"resources": [
 		"LICENSE",
 		"lang"
