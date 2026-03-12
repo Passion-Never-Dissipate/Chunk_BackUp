@@ -1,6 +1,6 @@
 {
 	"id": "chunk_backup",
-	"version": "2.0.0",
+	"version": "2.0.1",
 	"name": "Chunk Backup",
 	"description": {
 		"en_us": "A MCDR plugin that backs up or restores by chunk",
@@ -15,7 +15,7 @@
 		"candy_tools": ">=1.0.1"
 	},
 	"entrypoint": "chunk_backup.entry",
-	"archive_name": "Chunk_Backup-v{version}",
+	"archive_name": "Chunk_BackUp-v{version}",
 	"resources": [
 		"LICENSE",
 		"lang"

@@ -224,7 +224,7 @@ class CommandManager:
             # 静态标志
             static_flag = CountingLiteral(['--static', '-s'], 'static_count')
             static_flag.runs(self.cmd_make)
-            arg_comment_after_static = GreedyText('comment').runs(functools.partial(self.cmd_make, is_static=True))
+            arg_comment_after_static = GreedyText('comment').runs(self.cmd_make)
             static_flag.then(arg_comment_after_static)
 
             # 注释（无静态）
@@ -250,7 +250,7 @@ class CommandManager:
 
             static_flag = CountingLiteral(['--static', '-s'], 'static_count')
             static_flag.runs(self.cmd_make)
-            arg_comment_after_static = GreedyText('comment').runs(functools.partial(self.cmd_make))
+            arg_comment_after_static = GreedyText('comment').runs(self.cmd_make)
             static_flag.then(arg_comment_after_static)
 
             arg_comment_no_static = GreedyText('comment').runs(self.cmd_make)
@@ -269,7 +269,7 @@ class CommandManager:
 
             static_flag = CountingLiteral(['--static', '-s'], 'static_count')
             static_flag.runs(self.cmd_make)
-            arg_comment_after_static = GreedyText('comment').runs(functools.partial(self.cmd_make))
+            arg_comment_after_static = GreedyText('comment').runs(self.cmd_make)
             static_flag.then(arg_comment_after_static)
 
             arg_comment_no_static = GreedyText('comment').runs(self.cmd_make)

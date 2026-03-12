@@ -169,7 +169,7 @@ class RestoreBackupTask(HeavyTask[None]):
                 )
             )
         else:
-            self.broadcast(self.get_json_obj("no_carpet", self.tr("pre_backup.name").to_plain_text(), without_id=True))
+            self.broadcast(self.get_json_obj("task.create_backup.no_carpet", self.tr("pre_backup.name").to_plain_text(), without_id=True))
 
         if not self.__countdown_and_stop_server():
             return
