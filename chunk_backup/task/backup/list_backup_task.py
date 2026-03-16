@@ -59,35 +59,38 @@ class ListBackupTask(ImmediateTask[None]):
 
             try:
                 with open(info_file, 'r', encoding='utf-8') as f:
-                    slot_info: BackupInfo = BackupInfo.deserialize(json.load(f))
+                    backup_info: BackupInfo = BackupInfo.deserialize(json.load(f))
 
-                dimension = ", ".join(slot_info.dimension)
-                operator = slot_info.operator
-                command = slot_info.command
-                slot_num = slot.name.replace("slot", "")
+                dimension = ", ".join(backup_info.dimension)
+                operator = backup_info.operator
+                command = backup_info.command
+                slot_integer = slot.name.replace("slot", "")
                 prefix = self.config.command.prefix
-                static = " st" if self.manager.is_static else ""
-                size = ByteCount(slot_info.total_size).auto_format().to_str().replace("i", "")
-                date = slot_info.date
-                name = tr("other.ui.custom").to_plain_text() if slot_info.type == "custom" else tr("other.ui.comment").to_plain_text()
-                comment = slot_info.comment
+                is_static = " -s" if self.manager.is_static else ""
+                size = ByteCount(backup_info.total_size).auto_format().to_str().replace("i", "")
+                date = backup_info.date
+                name = tr("other.ui.custom").to_plain_text() if backup_info.type == "custom" else tr("other.ui.comment").to_plain_text()
+                comment = backup_info.comment
+
+                cmd_show = f"{prefix} show {slot_integer}{is_static}"
+                cmd_back = f"{prefix} back {slot_integer}{is_static}"
+                cmd_del = f"{prefix} del {slot_integer}{is_static}"
 
                 content.append(
                     self.get_json_obj(
                         "single_slot", dimension=dimension, operator=operator, command=command,
-                        slot=slot_num, prefix=prefix, static=static, size=size, date=date,
-                        name=name, comment=comment
+                        size=size, date=date, name=name, comment=comment, slot=slot_integer,
+                        cmd_show=cmd_show, cmd_back=cmd_back, cmd_del=cmd_del
                     )
                 )
             except Exception:
-                slot_display = self.get_json_obj("other.ui.slot_display", slot=slot.name.replace("slot", ""),
-                                                 without_id=True)
+                slot_display = self.get_json_obj("other.ui.slot_display", slot=slot.name.replace("slot", ""), without_id=True)
                 info_empty = self.get_json_obj("other.ui.info_empty", without_id=True)
                 content.append(self.merge_rtext_lists(slot_display, info_empty, separator=" "))
 
         if not self.hide_ui:
             page_components = []
-            suffix = " st" if self.manager.is_static else ""
+            suffix = " -s" if self.manager.is_static else ""
             base_cmd = f"{self.config.command.prefix} list{suffix}".strip()
 
             # 上一页

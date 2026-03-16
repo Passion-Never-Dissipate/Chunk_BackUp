@@ -314,39 +314,42 @@ class CommandManager:
 
         def make_show_cmd() -> Literal:
             node = create_subcommand('show')
+
+            # ---------- overwrite 分支 ----------
             overwrite_node = CountingLiteral("overwrite", "pre_backup")
             overwrite_node.runs(self.cmd_show)
+            # overwrite 后可以跟 -d 标志
+            data_flag_overwrite = CountingLiteral(['-d', '--data'], 'data_count')
+            data_flag_overwrite.runs(self.cmd_show)
+            data_flag_overwrite.redirects(overwrite_node)  # 解析完 -d 后继续在 overwrite 节点下解析其他标志
+            overwrite_node.then(data_flag_overwrite)
             node.then(overwrite_node)
 
-            # 槽位节点（必需参数）
+            # ---------- 槽位分支 ----------
             arg_slot = Integer('backup_id').at_min(1)
             arg_slot.runs(self.cmd_show)
 
-            # 静态标志（无参数）
+            # 静态标志
             static_flag = CountingLiteral(['--static', '-s'], 'static_count')
             static_flag.runs(self.cmd_show)
+            static_flag.redirects(arg_slot)  # 解析后回到槽位节点继续
 
-            # 数据标志（带参数）
+            # 数据标志（无参数）
             data_flag = CountingLiteral(['-d', '--data'], 'data_count')
             data_flag.runs(self.cmd_show)
-            arg_page = Integer('page').at_min(1)
-            arg_page.runs(self.cmd_show)
+            data_flag.redirects(arg_slot)
 
-            # 数据标志后可跟页码
-            data_flag.then(arg_page)
+            # 页码标志（带参数，如 -p 2）
+            page_literal = Literal(['-p', '--page'])
+            page_arg = Integer('page').at_min(1)
+            page_arg.runs(self.cmd_show)
+            page_arg.redirects(arg_slot)  # 页码参数后继续
+            page_literal.then(page_arg)
 
-            # 页码后可以跟静态（用于数据+静态顺序）
-            arg_page.then(static_flag)
-
-            # 静态后可以跟数据（用于静态+数据顺序）
-            static_flag.then(data_flag)
-
-            # 槽位后可以跟静态或数据
+            # 将所有标志挂载到槽位节点下
             arg_slot.then(static_flag)
             arg_slot.then(data_flag)
-
-            # overwrite 后只能跟数据标志，不能跟静态标志
-            overwrite_node.then(data_flag)  # 保留数据标志，移除静态标志
+            arg_slot.then(page_literal)
 
             node.then(arg_slot)
             return node
@@ -408,30 +411,26 @@ class CommandManager:
 
         def make_delete_cmd() -> Literal:
             node = create_subcommand('del')
-            node.runs(self.cmd_del)
 
-            static_flag = CountingLiteral(['--static', '-s'], 'static_count')
-            static_flag.runs(self.cmd_del)
-
+            # ---------- all 分支 ----------
             all_node = CountingLiteral('all', 'all_count')
             all_node.runs(self.cmd_del)
+            # all 后可以跟 -s
+            static_flag_all = CountingLiteral(['--static', '-s'], 'static_count')
+            static_flag_all.runs(self.cmd_del)
+            static_flag_all.redirects(all_node)
+            all_node.then(static_flag_all)
+            node.then(all_node)
 
+            # ---------- 槽位范围分支 ----------
             arg_slot = IntegerRangeList('slot_range')
             arg_slot.runs(self.cmd_del)
-
-            # 根节点后可以跟 all 或槽位
-            node.then(all_node)
+            # 槽位后可以跟 -s
+            static_flag_slot = CountingLiteral(['--static', '-s'], 'static_count')
+            static_flag_slot.runs(self.cmd_del)
+            static_flag_slot.redirects(arg_slot)
+            arg_slot.then(static_flag_slot)
             node.then(arg_slot)
-
-            # 静态节点后可以跟 all 或槽位
-            static_flag.then(all_node)
-            static_flag.then(arg_slot)
-
-            # 槽位节点后可以跟静态
-            arg_slot.then(static_flag)
-
-            # all 节点后也可以跟静态（!!cb del all -s 生效）
-            all_node.then(static_flag)
 
             return node
 

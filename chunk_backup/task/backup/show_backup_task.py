@@ -16,7 +16,7 @@ class ShowBackupTask(ImmediateTask[None]):
         self.manager = manager(is_static=True if context.get("static_count") else False)
         self.overwrite = self.config.overwrite_storage
         self.raw_id = self.config.overwrite_storage if context.get("pre_backup", 0) > 0 else f'slot{context["backup_id"]}'
-        self.integer_id = self.raw_id.replace("backup_id", "")
+        self.integer_id = self.raw_id.replace("slot", "")
         self.pre_backup = context.get("pre_backup", 0) > 0
         self.show_uuid_list = context.get("data_count", 0) > 0
         self.page = context.get('page', 1)
@@ -57,8 +57,8 @@ class ShowBackupTask(ImmediateTask[None]):
 
         # 翻页组件
         page_components = []
-        suffix = ("st" if self.manager.is_static else "")
-        base_cmd = f"{self.config.command.prefix} show{suffix} {self.manager.backup_slot.replace('slot', '')} -u".strip()
+        suffix = (" -s" if self.manager.is_static else "")
+        base_cmd = f"{self.config.command.prefix} show {self.integer_id}{suffix} -d -p".strip()
 
         # 上一页
         if self.page > 1:
@@ -127,8 +127,8 @@ class ShowBackupTask(ImmediateTask[None]):
                     elif key == "dimension":
                         value = ", ".join(info[key])
                     elif key == "uuid_dict":
-                        suffix = (" st" if self.manager.is_static else "")
-                        cmd = f"{self.config.command.prefix} show{suffix} {self.integer_id} -u".strip()
+                        suffix = (" -s" if self.manager.is_static else "")
+                        cmd = f"{self.config.command.prefix} show {self.integer_id}{suffix} -d".strip()
                         value = self.tr("common.uuid_do_click", total=len(backup_info.uuid_dict), cmd=cmd).to_plain_text()
                     elif key in ["player_position", "top_left", "top_right", "bottom_left", "bottom_right"]:
                         if key == "player_position" and "player_position" not in info:

@@ -59,12 +59,15 @@ class RestoreBackupTask(HeavyTask[None]):
         manager = self.manager
         if not self.raw_id and not self.pre_restore:
             manager.backup_slot = manager.get_min_slot_name()
+            if manager.backup_slot is None:
+                self.reply(self.get_json_obj("other.ui.list_empty", without_id=True), with_prefix=True)
+                return
             self.raw_id = f"slot{manager.backup_slot}"
             self.integer_id = self.raw_id.replace("slot", "")
         else:
             manager.backup_slot = self.overwrite if self.pre_restore else self.raw_id
             self.raw_id = manager.backup_slot
-            self.integer_id = self.raw_id.replace("slot", "")
+            self.integer_id = self.raw_id.replace("slot", "") if self.raw_id else None
 
         backup_storage = manager.storage_root / (self.overwrite if self.pre_restore else manager.region_storage / manager.backup_slot)
 

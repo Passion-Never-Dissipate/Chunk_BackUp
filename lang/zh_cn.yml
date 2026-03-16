@@ -135,9 +135,11 @@ chunk_backup:
           §d【可选参数】§r
           §7--static§7/§7-s§r: 展示静态备份里的备份信息,无法用于回档前备份
           §7--data§r/§7-d§r: 展示给定备份里备份的的玩家信息
+          §7--page§r/§7-p§r: 页数,仅在有--data参数时生效
           §d【例子】§r
-          §7{prefix} show 1 --static --data
+          §7{prefix} show 1 --static --data --page 2
           §7{prefix} show 3 -d
+          §7{prefix} show 3 -d -p 2
           §7{prefix} show overwrite -d
 
         list: |-
@@ -259,7 +261,7 @@ chunk_backup:
       name: 展示备份列表
       title_dy: §d【动态备份】
       title_st: §d【静态备份】
-      single_slot: "¶†st=备份维度: §a{dimension}§r\\n备份用户: §b{operator}§r\\n备份指令: §6{command}¶†[槽位§6{slot}§r] ¶†sc={prefix} show{static} {slot}<>st=查看槽位§6{slot}§f所有信息¶†§6[C] ¶†sc={prefix} back{static} {slot}<>st=回档至槽位§6{slot}¶†§a[▷] ¶†sc={prefix} del{static} {slot}<>st=删除槽位§6{slot}¶†§c[x] ¶†¶†§a{size}§r {date} {name}: {comment}"
+      single_slot: "¶†st=备份维度: §a{dimension}§r\\n备份用户: §b{operator}§r\\n备份指令: §6{command}¶†[槽位§6{slot}§r] ¶†sc={cmd_show}<>st=查看槽位§6{slot}§f所有信息¶†§6[C] ¶†sc={cmd_back}<>st=回档至槽位§6{slot}¶†§a[▷] ¶†sc={cmd_del}<>st=删除槽位§6{slot}¶†§c[x] ¶†¶†§a{size}§r {date} {name}: {comment}"
 
     show_backup:
       name: 展示槽位信息
