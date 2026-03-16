@@ -10,7 +10,7 @@
 
 > 💡 **提示**  
 > - 当前版本支持 Minecraft 1.16以后的所有正式版，并自动适配26.1前后的新世界存储结构。  
-> - 需要 MCDReforged **≥2.15.1** 和 **必须的前置插件** [candy_tools](https://github.com/Passion-Never-Dissipate/candy_tools) **≥1.0.1**（缺少它将导致插件无法正常工作）。  
+> - 需要 MCDReforged **≥2.15.1** 和 **必须的前置插件** [candy_tools](https://github.com/Passion-Never-Dissipate/candy_tools) **≥1.0.2**（缺少它将导致插件无法正常工作）。  
 > - 建议将服务端编码设为 UTF-8（详见配置说明）。  
 > - 遇到问题先检查插件是否为最新版，并确认配置文件是否正确。  
 > - 若发现问题或有改进建议，欢迎提交 Issue 或 PR，也可加入交流群：**417086159**。
@@ -92,7 +92,7 @@
 
 ## 📦 安装
 
-1. **确保已安装前置插件**：`candy_tools` 是必须的前置插件，缺少它将导致 Chunk Backup 无法正常工作。请先安装 [candy_tools](https://github.com/Passion-Never-Dissipate/candy_tools) **≥1.0.1**。
+1. **确保已安装前置插件**：`candy_tools` 是必须的前置插件，缺少它将导致 Chunk Backup 无法正常工作。请先安装 [candy_tools](https://github.com/Passion-Never-Dissipate/candy_tools) **≥1.0.2**。
 2. **安装 Chunk Backup**：你可以通过以下任意一种方式安装：
    - **推荐：使用 MCDR 插件管理器**  
      在游戏内或控制台执行命令：  
