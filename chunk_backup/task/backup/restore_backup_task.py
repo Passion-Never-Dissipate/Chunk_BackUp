@@ -4,6 +4,7 @@ import candy_tools as ct
 
 from collections import defaultdict
 from typing import Union
+from pathlib import Path
 from mcdreforged.api.types import CommandSource
 from mcdreforged.api.rtext import RTextBase
 from chunk_backup.task.basic_task import HeavyTask
@@ -216,7 +217,7 @@ class RestoreBackupTask(HeavyTask[None]):
                     try:
                         log_task.pre_restore_done = False
                         self.logger.info(tr("other.error.chunk.restore_backup.pre_restore_ready").to_plain_text())
-                        with open(backup_info.backup_path, 'r', encoding='utf-8') as f:
+                        with open(Path(backup_info.backup_path) / "info.json", 'r', encoding='utf-8') as f:
                             pre_backup = json.load(f).get("date")
                         if backup_info.date == pre_backup:
                             manager.backup_slot = self.overwrite
