@@ -245,12 +245,21 @@ class Chunk:
             if src_region.exists():
                 src_f = open(src_region, 'rb')
             tgt_f = None
-            free_sectors = []
             try:
                 # 如果目标文件已存在，打开并扫描空闲扇区
                 if tgt_region.exists():
-                    tgt_f = open(tgt_region, 'r+b')
-                    free_sectors = cls._scan_free_sectors(tgt_region, file_obj=tgt_f)
+                    # 检查文件大小是否至少为头部大小（4096 字节）
+                    if os.path.getsize(tgt_region) >= 4096:
+                        tgt_f = open(tgt_region, 'r+b')
+                        free_sectors = cls._scan_free_sectors(tgt_region, file_obj=tgt_f)
+                    else:
+                        # 文件太小或损坏，删除它，后续当作新文件处理
+                        tgt_region.unlink()
+                        tgt_f = None
+                        free_sectors = []
+                else:
+                    tgt_f = None
+                    free_sectors = []
 
                 for x, z in coords:
                     # 从备份读取数据
@@ -349,7 +358,7 @@ class Chunk:
 
             except Exception:
                 server.logger.error(
-                    tr("other.error.chunk.restore_backup.process_region", region=region_file, path=tgt_region,
+                    tr("other.error.chunk.create_backup.process_region", region=region_file, path=tgt_region,
                        error=traceback.format_exc()))
                 raise FatalError(restore=True)
             finally:
