@@ -31,8 +31,8 @@ class BackupConfig(Serializable):
                 "description": tr("other.dimension.the_nether").to_plain_text(),
                 "region_folder": [
                     "DIM-1/poi" if version_tag == "ver_1" else "dimensions/minecraft/the_nether/poi",
-                    "DIM-1/entities" if version_tag == "ver_1" else "dimensions/minecraft/the_nether/poi",
-                    "DIM-1/region" if version_tag == "ver_1" else "dimensions/minecraft/the_nether/poi"
+                    "DIM-1/entities" if version_tag == "ver_1" else "dimensions/minecraft/the_nether/entities",
+                    "DIM-1/region" if version_tag == "ver_1" else "dimensions/minecraft/the_nether/region"
                 ]
             },
             "minecraft:the_end": {
@@ -41,8 +41,8 @@ class BackupConfig(Serializable):
                 "description": tr("other.dimension.the_end").to_plain_text(),
                 "region_folder": [
                     "DIM1/poi" if version_tag == "ver_1" else "dimensions/minecraft/the_end/poi",
-                    "DIM1/entities" if version_tag == "ver_1" else "dimensions/minecraft/the_end/poi",
-                    "DIM1/region" if version_tag == "ver_1" else "dimensions/minecraft/the_end/poi"
+                    "DIM1/entities" if version_tag == "ver_1" else "dimensions/minecraft/the_end/entities",
+                    "DIM1/region" if version_tag == "ver_1" else "dimensions/minecraft/the_end/region"
                 ]
             }
         }
