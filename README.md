@@ -192,12 +192,16 @@ Minecraft 命令模板，用于执行特定操作。可修改以适应非原版�
 - `crood_getter`: 匹配坐标输出。
 - `dimension_getter`: 匹配维度输出。
 
+默认规则同时匹配旧版输出和带 `System chat: ` 前缀的 Minecraft 26.3 输出。加载插件时会自动升级旧版默认规则并保存配置，无需删除配置文件；用户自定义的规则会保留。
+
 如果修改了服务端语言或输出格式，可能需要调整这些正则。
 
 #### `server.saved_world_regex`
 - 类型：字符串列表
-- 默认值：`["Saved the game", "Saved the world"]`
+- 默认值：`["(?:System chat: )?Saved the game", "(?:System chat: )?Saved the world"]`
 - 说明：匹配世界保存完成时的控制台输出，用于确认保存操作完成。
+
+默认规则兼容旧版输出和 Minecraft 26.3 的 `System chat: ` 前缀。加载插件时会自动升级旧版默认规则，保留自定义规则及空列表。
 
 #### `server.save_world_max_wait`
 - 类型：字符串（带单位的时间）

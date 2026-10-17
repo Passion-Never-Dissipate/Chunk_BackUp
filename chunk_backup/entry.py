@@ -30,6 +30,12 @@ def _try_upgrade_config(server: PluginServerInterface, cfg: Config, from_startup
         if cfg.upgrade_version(plugin_version):
             server.logger.info(f'Config version upgraded: {cfg.config_version} -> {plugin_version}')
             modified = True
+        if cfg.server.upgrade_data_getter_regex():
+            server.logger.info('Data getter regex upgraded for System chat output')
+            modified = True
+        if cfg.server.upgrade_saved_world_regex():
+            server.logger.info('World save regex upgraded for System chat output')
+            modified = True
 
     # 2. 维度与玩家数据结构升级（仅当能获取到有效 Minecraft 版本时）
     server_version = server.get_server_information().version

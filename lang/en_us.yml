@@ -259,7 +259,7 @@ chunk_backup:
       name: "List backups"
       title_dy: "§d【Dynamic Backups】"
       title_st: "§d【Static Backups】"
-      single_slot: "¶†st=Dimensions: §a{dimension}§r\\nOperator: §b{operator}§r\\nCommand: §6{command}¶†[Slot§6{slot}§r] ¶†sc={prefix} show{static} {slot}<>st=View all info of slot§6{slot}§f¶†§6[C] ¶†sc={prefix} back{static} {slot}<>st=Restore to slot§6{slot}¶†§a[▷] ¶†sc={prefix} del{static} {slot}<>st=Delete slot§6{slot}¶†§c[x] ¶†¶†§a{size}§r {date} {name}: {comment}"
+      single_slot: "¶†st=Dimensions: §a{dimension}§r\\nOperator: §b{operator}§r\\nCommand: §6{command}¶†[Slot§6{slot}§r] ¶†sc={cmd_show}<>st=View all info of slot§6{slot}§f¶†§6[C] ¶†sc={cmd_back}<>st=Restore to slot§6{slot}¶†§a[▷] ¶†sc={cmd_del}<>st=Delete slot§6{slot}¶†§c[x] ¶†¶†§a{size}§r {date} {name}: {comment}"
 
     show_backup:
       name: "Show slot info"
