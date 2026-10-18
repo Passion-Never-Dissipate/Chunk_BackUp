@@ -58,7 +58,7 @@ class BackupConfig(Serializable):
                     "world/players/stats"
                 ],
                 ".dat": [
-                    "world/players/playerdata"
+                    "world/players/data"
                 ]
             }
         else:
@@ -80,6 +80,7 @@ class BackupConfig(Serializable):
         返回 True 表示任一配置被修改，需要保存。
         """
         target_tag = "ver_2" if is_version_ge_26_1(minecraft_version) else "ver_1"
+        previous_minecraft_version = config.minecraft_version
 
         modified = False
 
@@ -109,16 +110,27 @@ class BackupConfig(Serializable):
             modified = True
         else:
             current_interval_is_ver2_player = False
-            if config.minecraft_version is not None:
-                current_interval_is_ver2_player = is_version_ge_26_1(config.minecraft_version)
+            if previous_minecraft_version is not None:
+                current_interval_is_ver2_player = is_version_ge_26_1(previous_minecraft_version)
             target_interval_is_ver2_player = is_version_ge_26_1(minecraft_version)
 
-            if current_interval_is_ver2_player != target_interval_is_ver2_player:
+            if current_interval_is_ver2_player != target_interval_is_ver2_player or (
+                target_tag == "ver_2" and config.backup.player_data == cls._build_player_data_structure("ver_1")
+            ):
                 config.backup.player_data = cls._build_player_data_structure(target_tag)
                 config.minecraft_version = minecraft_version
                 modified = True
             elif config.minecraft_version != minecraft_version:
                 config.minecraft_version = minecraft_version
+                modified = True
+
+        if target_tag == "ver_2":
+            folders = config.backup.player_data.get(".dat", [])
+            if "world/players/playerdata" in folders:
+                config.backup.player_data[".dat"] = [
+                    "world/players/data" if folder == "world/players/playerdata" else folder
+                    for folder in folders
+                ]
                 modified = True
 
         return modified
